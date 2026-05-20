@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大六壬 · 排盘解盘</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div id="app">
+        <header id="toolbar">
+            <div class="brand">
+                <div class="brand-icon">壬</div>
+                <h1>大六壬 · 排盘解盘</h1>
+            </div>
+            <div id="toolbar-actions">
+                <button id="btn-save-case" class="btn" title="保存当前盘式">存储案例</button>
+                <button id="btn-cases" class="btn" title="查看已保存案例">案例库</button>
+                <button id="btn-paipan" class="btn btn-primary">排 盘</button>
+            </div>
+        </header>
+
+        <div id="main-layout">
+            <!-- 左侧参数 -->
+            <aside id="params-panel">
+                <div class="panel-title">时 间 参 数</div>
+
+                <!-- 时间输入 -->
+                <div class="param-group">
+                    <label>公历日期 & 时刻</label>
+                    <div class="date-row">
+                        <input type="number" id="param-year" class="date-inp year-inp" value="2026" min="1" max="2100">
+                        <span class="date-unit">年</span>
+                        <input type="number" id="param-month" class="date-inp" value="5" min="1" max="12">
+                        <span class="date-unit">月</span>
+                        <input type="number" id="param-day" class="date-inp" value="20" min="1" max="31">
+                        <span class="date-unit">日</span>
+                        <input type="number" id="param-hour" class="date-inp" value="0" min="0" max="23">
+                        <span class="date-unit">时</span>
+                        <input type="number" id="param-minute" class="date-inp" value="0" min="0" max="59">
+                        <span class="date-unit">分</span>
+                    </div>
+                    <div class="date-quick">
+                        <span class="date-show" id="disp-full">2026年5月20日 00:00</span>
+                        <button id="btn-current-time" class="btn btn-sm">此刻</button>
+                    </div>
+                </div>
+
+                <!-- 占时/月将 隐藏，自动推算 -->
+                <input type="hidden" id="param-zhanshi" value="auto">
+                <input type="hidden" id="param-yuejiang" value="auto">
+
+                <div class="param-group">
+                    <label>性别 · 本命年 · 干支</label>
+                    <div class="param-row">
+                        <select id="param-sex"><option value="男">男</option><option value="女">女</option></select>
+                        <input type="number" id="param-birth-year" value="1990" min="1" max="2100" placeholder="生年">
+                        <input type="text" id="param-birth-ganzhi" placeholder="如 庚午" maxlength="2" style="width:60px">
+                    </div>
+                </div>
+
+                <button id="btn-update" class="btn btn-gold">更 新 盘 面</button>
+
+                <div class="info-card">
+                    <div><span class="info-label">月将：</span><span class="info-value" id="info-yuejiang">--</span></div>
+                    <div><span class="info-label">节气：</span><span class="info-value" id="info-jieqi">--</span></div>
+                </div>
+            </aside>
+
+            <!-- 中间盘面 -->
+            <main id="board-panel">
+                <!-- 卦头信息 -->
+                <div id="board-info">
+                    <div class="info-tag" id="sizhu-display"><span class="label">四柱</span><span class="value gold">--</span></div>
+                    <div class="info-tag" id="sanchuan-display"><span class="label">三传</span><span class="value red">--</span></div>
+                    <div class="info-tag" id="method-display"><span class="label">课式</span><span class="value red">--</span></div>
+                </div>
+
+                <div id="board-container">
+                    <div id="board-placeholder"><div class="placeholder-icon">☰</div><div>点击「排盘」开始占卜</div></div>
+                </div>
+
+                <!-- 四课（HTML 卡片） -->
+                <div id="sike-container" class="card-section"></div>
+
+                <!-- 三传（HTML 卡片） -->
+                <div id="sanchuan-container" class="card-section"></div>
+            </main>
+
+            <!-- 右侧对话 -->
+            <section id="chat-panel">
+                <div class="panel-title">解 盘 对 话</div>
+                <div id="chat-messages"></div>
+                <div id="chat-quick-actions">
+                    <button class="btn btn-sm" data-query="总览">总览</button>
+                    <button class="btn btn-sm" data-query="事业/官运">事业</button>
+                    <button class="btn btn-sm" data-query="财运/求财">财运</button>
+                    <button class="btn btn-sm" data-query="感情/婚姻">感情</button>
+                    <button class="btn btn-sm" data-query="健康">健康</button>
+                    <button class="btn btn-sm" data-query="三传详解">三传</button>
+                    <button class="btn btn-sm" data-query="四课分析">四课</button>
+                </div>
+                <div id="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="输入问题深入解读...">
+                    <button id="btn-chat-send" class="btn btn-primary">发送</button>
+                </div>
+            </section>
+        </div>
+
+        <!-- 案例库弹窗 -->
+        <div id="cases-modal" class="modal" style="display:none">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">案例库</span>
+                    <button id="btn-close-cases" class="btn btn-sm">&times;</button>
+                </div>
+                <div id="cases-filter">
+                    <button class="btn btn-sm cat-btn active" data-cat="">全部</button>
+                    <button class="btn btn-sm cat-btn" data-cat="地震">地震</button>
+                    <button class="btn btn-sm cat-btn" data-cat="事业">事业</button>
+                    <button class="btn btn-sm cat-btn" data-cat="财运">财运</button>
+                    <button class="btn btn-sm cat-btn" data-cat="感情">感情</button>
+                    <button class="btn btn-sm cat-btn" data-cat="健康">健康</button>
+                    <button class="btn btn-sm cat-btn" data-cat="其他">其他</button>
+                    <button id="btn-new-cat" class="btn btn-sm" title="新建子库">+</button>
+                </div>
+                <div id="cases-list"></div>
+                <div id="cases-footer">
+                    <button id="btn-compare" class="btn btn-primary btn-sm">对比选中</button>
+                    <button id="btn-select-all" class="btn btn-sm">全选</button>
+                    <span id="compare-hint" style="font-size:0.7rem;color:var(--text3);margin-left:8px;align-self:center">勾选2+案例后点击对比</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/params.js"></script>
+    <script src="/static/js/pan-renderer.js"></script>
+    <script src="/static/js/chat.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
