@@ -38,7 +38,27 @@ const User = {
         // 上传
         $on('btn-upload-case', 'click', () => this._uploadCurrentCase());
 
+        // 检查 SMTP 是否可用，不可用则隐藏验证码登录
+        this._checkSmtpStatus();
+
         this._updateUI();
+    },
+
+    async _checkSmtpStatus() {
+        try {
+            const resp = await fetch('/api/auth/email/send-code', {
+                method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ email: 'check@test.local' }),
+            });
+            const r = await resp.json();
+            // 如果返回 SMTP 未配置，隐藏验证码区域
+            if (!r.success && r.message && r.message.includes('SMTP')) {
+                document.getElementById('code-login-area').style.display = 'none';
+            }
+        } catch(e) {
+            // 网络错误也隐藏
+            document.getElementById('code-login-area').style.display = 'none';
+        }
     },
 
     isLoggedIn() { return !!this._token; },
