@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
-cases/
-*.pyo
-.env
+backend/data/
+*.db
+.vscode/
+.idea/
+*.log
+history_backup/

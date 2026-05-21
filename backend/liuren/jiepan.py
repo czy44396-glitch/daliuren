@@ -73,7 +73,15 @@ def _build_pan_context(pan: dict) -> str:
     ctx += f"  末传：{sc['末传']} - {sc_lq['末传']} - {sc_tj['末传']}\n"
 
     ctx += f"\n**旬空**：{', '.join(pan['旬空'])}"
-    ctx += f"\n**神煞**：禄神={pan['神煞']['禄神']}, 天马={pan['神煞']['天马']}, 桃花={pan['神煞']['桃花']}"
+    # 神煞（已改为嵌套结构）
+    shensha = pan.get("神煞", {})
+    if isinstance(shensha, dict):
+        flat_ss = {}
+        for cat_items in shensha.values():
+            if isinstance(cat_items, dict):
+                flat_ss.update(cat_items)
+        if flat_ss:
+            ctx += f"\n**神煞**：{', '.join(f'{k}={v}' for k,v in flat_ss.items())}"
     if pan.get("行年"):
         ctx += f"\n**行年**：{pan['行年']}"
 
@@ -153,19 +161,25 @@ AI 服务当前不可用。建议检查 API 密钥配置。
 
 # ===== 公开接口 =====
 
-def chat_interpret(pan: dict, user_message: str, context: list[dict] | None = None) -> str:
+def chat_interpret(pan: dict, user_message: str, context: list[dict] | None = None, personal_style_ctx: str | None = None) -> str:
     """
-    AI 智能解盘。支持多轮对话。
+    AI 智能解盘。支持多轮对话，可注入用户个人解读风格。
 
     Args:
         pan: 完整课盘 dict
         user_message: 用户当前问题
         context: 之前的对话历史 [{"role":"user","content":"..."},{"role":"assistant","content":"..."}]
+        personal_style_ctx: 用户个人解读风格参考文本（来自类似案例的笔记）
 
     Returns:
         AI 解读结果（Markdown 格式）
     """
     system_prompt = _build_system_prompt()
+
+    # 注入个人风格参考
+    if personal_style_ctx:
+        system_prompt += f"\n\n{personal_style_ctx}"
+
     pan_context = _build_pan_context(pan)
 
     # 构造消息

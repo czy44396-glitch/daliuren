@@ -97,10 +97,12 @@ def _shehai_depth_full(tian: str, di: str, ke_type: str, tiandipan: dict) -> int
 
 # ========== 1. 伏吟/返吟检测 ==========
 
-def _check_fuyin(sike: list) -> bool:
-    """判断是否伏吟：所有四课的上神 == 地盘"""
-    first = sike[0]
-    return all(t == d for t, d in sike) or all(t == first[0] for t, d in sike)
+def _check_fuyin(tiandipan: dict) -> bool:
+    """判断是否伏吟：天地盘重合，天盘每宫 == 地盘同宫"""
+    for di in DIZHI:
+        if tiandipan[di] != di:
+            return False
+    return True
 
 
 def _check_fanyin(tiandipan: dict) -> bool:
@@ -140,7 +142,7 @@ def get_sanchuan(
        "初传地盘": str, "中传地盘": str, "末传地盘": str}
     """
     # --- 判断特殊格局 ---
-    is_fuyin = _check_fuyin(sike)
+    is_fuyin = _check_fuyin(tiandipan)
     is_fanyin = _check_fanyin(tiandipan)
     is_bazhuan = _is_bazhuan(ri_gan, ri_zhi) and not is_fuyin and not is_fanyin
 
@@ -162,22 +164,48 @@ def get_sanchuan(
     # ============ 伏吟 ============
     if is_fuyin:
         method = "伏吟"
-        if ke_list:
-            chuchuan = ke_list[0]["tian"]
-        else:
-            if GAN_YINYANG[ri_gan] == "阳":
-                jigong = GAN_JIGONG[ri_gan]
-                chuchuan = get_xing(jigong) or DIZHI[(ZHI_INDEX[jigong] + 1) % 12]
-            else:
-                chuchuan = get_xing(ri_zhi) or DIZHI[(ZHI_INDEX[ri_zhi] + 1) % 12]
+        is_yang = GAN_YINYANG[ri_gan] == "阳"
+        # 阳日干上神(=寄宫), 阴日支上神(=日支)。伏吟中上神==地盘
+        gan_shang = GAN_JIGONG[ri_gan]     # 干上神
+        zhi_shang = ri_zhi                  # 支上神
+        ZIXING = {"辰", "午", "酉", "亥"}
 
-        # 伏吟中传 = 初传之刑, 末传 = 中传之刑
-        zhongchuan = get_xing(chuchuan) or chuchuan
-        if zhongchuan == chuchuan:  # 自刑
-            zhongchuan = get_chong(chuchuan)
-        mochuan = get_xing(zhongchuan) or zhongchuan
-        if mochuan == zhongchuan:
-            mochuan = get_chong(zhongchuan)
+        if ke_list:
+            # ====== 规则 A：有克 ======
+            # 初传 = 有克课之上神（优先第一课）
+            chuchuan = ke_list[0]["tian"]
+
+            # 中传 = 初传所刑
+            zhongchuan = get_xing(chuchuan)
+            # 特判：初传自刑 → 中传改为：阳日取支上神，阴日取干上神
+            if chuchuan in ZIXING:
+                zhongchuan = zhi_shang if is_yang else gan_shang
+
+            # 末传 = 中传所刑；若中传自刑 → 末传 = 中传之冲
+            mochuan = get_xing(zhongchuan)
+            if zhongchuan in ZIXING:
+                mochuan = get_chong(zhongchuan)
+        else:
+            # ====== 规则 B：无克 ======
+            if is_yang:
+                # 阳日「自任格」：初传 = 干上神
+                chuchuan = gan_shang
+            else:
+                # 阴日「自信格」：初传 = 支上神
+                chuchuan = zhi_shang
+
+            # 杜传格：初传自刑 → 中传改取
+            if chuchuan in ZIXING:
+                # 阳日取支上神，阴日取干上神
+                zhongchuan = zhi_shang if is_yang else gan_shang
+            else:
+                # 中传 = 初传所刑
+                zhongchuan = get_xing(chuchuan)
+
+            # 末传 = 中传所刑；若中传自刑 → 末传 = 中传之冲
+            mochuan = get_xing(zhongchuan)
+            if zhongchuan in ZIXING:
+                mochuan = get_chong(zhongchuan)
 
     # ============ 返吟 ============
     elif is_fanyin:
@@ -316,10 +344,16 @@ def get_sanchuan(
             # 昴星
             method = "昴星"
             if GAN_YINYANG[ri_gan] == "阳":
-                chuchuan = tiandipan["酉"]  # 地盘酉上神
+                # 虎视课：仰视地盘酉之上神
+                chuchuan = tiandipan["酉"]
             else:
+                # 冬蛇掩目课：俯视天盘酉所临地盘，取其下一位之上神
                 tian_you_di = _tian_lin_di(tiandipan, "酉")
-                chuchuan = tiandipan[tian_you_di] if tian_you_di else tiandipan["酉"]
+                if tian_you_di:
+                    next_di = DIZHI[(ZHI_INDEX[tian_you_di] + 1) % 12]
+                    chuchuan = tiandipan[next_di]
+                else:
+                    chuchuan = tiandipan["酉"]  # fallback
 
     # ============ Fallback ============
     if chuchuan is None:

@@ -2,94 +2,367 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>大六壬 · 排盘解盘</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#8b1a2b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="大六壬">
+    <link rel="apple-touch-icon" href="/static/icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="stylesheet" href="/static/css/style.css?v=22">
 </head>
 <body>
-    <div id="app">
+
+    <!-- 加载遮罩 -->
+    <div id="loading-veil">
+        <div class="veil-rune">壬</div>
+        <div class="veil-line"></div>
+        <div class="veil-text">大六壬 · 时空推演</div>
+    </div>
+
+    <!-- ========== 时间参数入口页：三维天眼 · 壬坐太极 ========== -->
+    <div id="time-portal">
+        <!-- 混沌背景 -->
+        <canvas id="cosmos"></canvas>
+
+        <!-- 顶部标题 -->
+        <div class="top-title">
+            <h1>大六壬</h1>
+        </div>
+
+        <!-- 四象结界：年 -->
+        <div class="quadrant q-year">
+            <div class="q-label">岁次·年柱</div>
+            <div class="rune-disc" data-param="year">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <linearGradient id="discGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                            <stop offset="50%" style="stop-color:#1a1614;stop-opacity:0.7" />
+                            <stop offset="100%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="55" class="disc-ring" />
+                    <circle cx="60" cy="60" r="48" class="disc-ring-active" stroke="url(#discGradient)" stroke-dasharray="8 4" />
+                    <circle cx="60" cy="60" r="40" class="disc-ring" stroke="url(#discGradient)" stroke-dasharray="2 6" opacity="0.5" />
+                    <path d="M60,15 L60,25 M60,95 L60,105 M15,60 L25,60 M95,60 L105,60"
+                          stroke="rgba(58,54,50,0.15)" stroke-width="1" />
+                </svg>
+                <div class="rune-value" id="rune-year">2026</div>
+                <div class="rune-unit" id="rune-year-gz">丙午年</div>
+                <button class="rune-spin up" data-action="up">▴</button>
+                <button class="rune-spin dn" data-action="dn">▾</button>
+                <span class="quadrant-now" data-param="year">此刻</span>
+            </div>
+        </div>
+
+        <!-- 四象结界：月 -->
+        <div class="quadrant q-month">
+            <div class="q-label">月令·月柱</div>
+            <div class="rune-disc" data-param="month">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <linearGradient id="discGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                            <stop offset="50%" style="stop-color:#1a1614;stop-opacity:0.7" />
+                            <stop offset="100%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="55" class="disc-ring" />
+                    <circle cx="60" cy="60" r="48" class="disc-ring-active" stroke="url(#discGradient2)" stroke-dasharray="6 6" />
+                    <circle cx="60" cy="60" r="40" class="disc-ring" stroke="url(#discGradient2)" stroke-dasharray="3 5" opacity="0.5" />
+                    <path d="M60,20 L65,30 L55,30 Z M60,100 L65,90 L55,90 Z" fill="rgba(58,54,50,0.1)" />
+                </svg>
+                <div class="rune-value" id="rune-month">5</div>
+                <div class="rune-unit" id="rune-month-gz">乙巳月</div>
+                <button class="rune-spin up" data-action="up">▴</button>
+                <button class="rune-spin dn" data-action="dn">▾</button>
+                <span class="quadrant-now" data-param="month">此刻</span>
+            </div>
+        </div>
+
+        <!-- 四象结界：日 -->
+        <div class="quadrant q-day">
+            <div class="q-label">日辰·日柱</div>
+            <div class="rune-disc" data-param="day">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <linearGradient id="discGradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                            <stop offset="50%" style="stop-color:#1a1614;stop-opacity:0.7" />
+                            <stop offset="100%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="55" class="disc-ring" />
+                    <circle cx="60" cy="60" r="48" class="disc-ring-active" stroke="url(#discGradient3)" stroke-dasharray="10 2" />
+                    <circle cx="60" cy="60" r="40" class="disc-ring" stroke="url(#discGradient3)" stroke-dasharray="1 7" opacity="0.5" />
+                    <rect x="55" y="20" width="10" height="10" fill="rgba(58,54,50,0.15)" />
+                    <rect x="55" y="90" width="10" height="10" fill="rgba(58,54,50,0.15)" />
+                </svg>
+                <div class="rune-value" id="rune-day">21</div>
+                <div class="rune-unit" id="rune-day-gz">辛未日</div>
+                <button class="rune-spin up" data-action="up">▴</button>
+                <button class="rune-spin dn" data-action="dn">▾</button>
+                <span class="quadrant-now" data-param="day">此刻</span>
+            </div>
+        </div>
+
+        <!-- 四象结界：时 -->
+        <div class="quadrant q-hour">
+            <div class="q-label">时辰·时柱</div>
+            <div class="rune-disc" data-param="hour">
+                <svg viewBox="0 0 120 120">
+                    <defs>
+                        <linearGradient id="discGradient4" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                            <stop offset="50%" style="stop-color:#1a1614;stop-opacity:0.7" />
+                            <stop offset="100%" style="stop-color:#6b6560;stop-opacity:0.5" />
+                        </linearGradient>
+                    </defs>
+                    <circle cx="60" cy="60" r="55" class="disc-ring" />
+                    <circle cx="60" cy="60" r="48" class="disc-ring-active" stroke="url(#discGradient4)" stroke-dasharray="4 8" />
+                    <circle cx="60" cy="60" r="40" class="disc-ring" stroke="url(#discGradient4)" stroke-dasharray="2 4" opacity="0.5" />
+                    <polygon points="60,25 65,35 55,35" fill="rgba(58,54,50,0.1)" />
+                    <polygon points="60,95 65,85 55,85" fill="rgba(58,54,50,0.1)" />
+                </svg>
+                <div class="rune-value" id="rune-hour">17</div>
+                <div class="rune-unit" id="rune-hour-gz">丙申时</div>
+                <button class="rune-spin up" data-action="up">▴</button>
+                <button class="rune-spin dn" data-action="dn">▾</button>
+                <span class="quadrant-now" data-param="hour">此刻</span>
+            </div>
+        </div>
+
+        <!-- 中央三维天眼 -->
+        <div class="void-hub">
+            <div class="void-aura"></div>
+            <div class="taiji-3d" id="taiji3d">
+                <!-- 太极球体底座 -->
+                <div class="taiji-base">
+                    <svg viewBox="0 0 200 200">
+                        <defs>
+                            <filter id="baseGlow">
+                                <feGaussianBlur stdDeviation="3" result="blur"/>
+                                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+                            </filter>
+                            <radialGradient id="sphereGradient" cx="35%" cy="35%">
+                                <stop offset="0%" style="stop-color:rgba(255,255,255,0.08)" />
+                                <stop offset="50%" style="stop-color:rgba(58,54,50,0.06)" />
+                                <stop offset="100%" style="stop-color:rgba(58,54,50,0.2)" />
+                            </radialGradient>
+                        </defs>
+                        <circle cx="100" cy="100" r="95" fill="url(#sphereGradient)" stroke="rgba(58,54,50,0.08)" stroke-width="1"/>
+                        <path d="M100,5 A95,95 0 0,1 100,195 A47.5,47.5 0 0,1 100,100 A47.5,47.5 0 0,0 100,5"
+                              fill="rgba(26,22,20,0.9)" stroke="rgba(58,54,50,0.06)" stroke-width="0.5"/>
+                        <path d="M100,5 A95,95 0 0,0 100,195 A47.5,47.5 0 0,0 100,100 A47.5,47.5 0 0,1 100,5"
+                              fill="rgba(245,240,230,0.85)" stroke="rgba(58,54,50,0.06)" stroke-width="0.5"/>
+                        <circle cx="100" cy="147.5" r="12" fill="rgba(26,22,20,0.7)" filter="url(#baseGlow)"/>
+                        <circle cx="100" cy="52.5" r="12" fill="rgba(245,240,230,0.7)" filter="url(#baseGlow)"/>
+                    </svg>
+                </div>
+                <div class="taiji-rim"></div>
+                <div class="taiji-highlight"></div>
+
+                <!-- 能量粒子桥 -->
+                <div class="energy-bridge">
+                    <div class="bridge-particle" style="left:20%;animation-delay:0s;"></div>
+                    <div class="bridge-particle" style="left:50%;animation-delay:0.5s;"></div>
+                    <div class="bridge-particle" style="left:80%;animation-delay:1s;"></div>
+                    <div class="bridge-particle" style="left:35%;animation-delay:1.5s;"></div>
+                    <div class="bridge-particle" style="left:65%;animation-delay:2s;"></div>
+                </div>
+
+                <!-- 壬字宝珠 -->
+                <div class="ren-pearl">
+                    <div class="ren-trail"></div>
+                    <div class="ren-fall">
+                        <div class="ren-body"><span class="ren-text">壬</span></div>
+                    </div>
+                    <div class="ren-glow"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 左侧护法：四柱速查 -->
+        <div class="sticks-float">
+            <div class="stick-node" data-pillar="nian" id="stick-nian" title="点击搜索此年柱">年柱</div>
+            <div class="stick-node" data-pillar="yue" id="stick-yue" title="点击搜索此月柱">月柱</div>
+            <div class="stick-node" data-pillar="ri" id="stick-ri" title="点击搜索此日柱">日柱</div>
+            <div class="stick-node" data-pillar="shi" id="stick-shi" title="点击搜索此时柱">时柱</div>
+        </div>
+
+        <!-- 右侧护法：性别 + 生年 + 登录 -->
+        <div class="info-float">
+            <div class="info-node" id="info-sex" title="点击切换性别">
+                <span class="info-label">性</span><span id="info-sex-val">男</span>
+            </div>
+            <div class="info-node" id="info-birth" title="点击修改生年">
+                <span class="info-label">生</span><span id="info-birth-val">1990</span>
+            </div>
+            <div class="info-node" id="info-gz-panel" title="干支日历" style="font-size:10px;">
+                <span class="info-label">历</span>日历
+            </div>
+            <div class="info-node" id="info-portal-login" title="注册/登录">
+                <span class="info-label" id="portal-login-label">登</span><span id="portal-login-text">登录</span>
+            </div>
+        </div>
+
+        <!-- 底部撕裂入口 -->
+        <div class="tear-portal" id="tear-portal-btn">
+            <div class="tear-crack"></div>
+            <div class="tear-crack"></div>
+            <div class="tear-crack"></div>
+            <span class="portal-text">撕 裂 时 空 · 开 启 课 盘</span>
+        </div>
+
+        <!-- 干支日历面板 -->
+        <div id="gz-calendar-panel" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:50; background:rgba(252,250,245,0.97); border:1px solid rgba(58,54,50,0.12); border-radius:16px; padding:20px; width:380px; max-width:90vw; box-shadow:0 0 40px rgba(58,54,50,0.08);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                <button id="btn-cal-prev" style="background:none;border:1px solid rgba(58,54,50,0.1);color:#3a3632;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;">◂</button>
+                <span id="cal-title" style="color:#3a3632;font-size:16px;letter-spacing:4px;">2026年 5月</span>
+                <button id="btn-cal-next" style="background:none;border:1px solid rgba(58,54,50,0.1);color:#3a3632;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:18px;line-height:1;">▸</button>
+                <button id="btn-cal-today" style="margin-left:8px;padding:4px 12px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.12);color:#3a3632;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;">今天</button>
+                <button id="btn-cal-close" style="margin-left:4px;background:none;border:1px solid rgba(58,54,50,0.08);color:#6b6560;width:28px;height:28px;border-radius:50%;cursor:pointer;font-size:16px;line-height:1;">&times;</button>
+            </div>
+            <!-- 星期头 -->
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;margin-bottom:4px;">
+                <span style="color:#b83a2e;font-size:10px;">日</span><span style="color:#6b6560;font-size:10px;">一</span><span style="color:#6b6560;font-size:10px;">二</span><span style="color:#6b6560;font-size:10px;">三</span><span style="color:#6b6560;font-size:10px;">四</span><span style="color:#6b6560;font-size:10px;">五</span><span style="color:#3a3632;font-size:10px;">六</span>
+            </div>
+            <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;"></div>
+            <!-- 干支搜索（保留手动输入） -->
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(58,54,50,0.06);display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;">
+                <input type="text" id="param-gz-nian" placeholder="年柱" maxlength="2" style="width:44px;height:30px;text-align:center;background:rgba(245,240,230,0.7);border:1px solid rgba(58,54,50,0.08);color:#3a3632;border-radius:4px;font-family:inherit;font-size:11px;">
+                <input type="text" id="param-gz-yue" placeholder="月柱" maxlength="2" style="width:44px;height:30px;text-align:center;background:rgba(245,240,230,0.7);border:1px solid rgba(58,54,50,0.08);color:#3a3632;border-radius:4px;font-family:inherit;font-size:11px;">
+                <input type="text" id="param-gz-ri" placeholder="日柱" maxlength="2" style="width:44px;height:30px;text-align:center;background:rgba(245,240,230,0.7);border:1px solid rgba(58,54,50,0.08);color:#3a3632;border-radius:4px;font-family:inherit;font-size:11px;">
+                <input type="text" id="param-gz-shi" placeholder="时柱" maxlength="2" style="width:44px;height:30px;text-align:center;background:rgba(245,240,230,0.7);border:1px solid rgba(58,54,50,0.08);color:#3a3632;border-radius:4px;font-family:inherit;font-size:11px;">
+                <button id="btn-gz-search" style="height:30px;padding:0 10px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.12);color:#3a3632;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;">搜索</button>
+            </div>
+            <div id="gz-results" style="margin-top:8px;text-align:center;font-size:10px;color:rgba(168,154,130,0.6);min-height:14px;"></div>
+        </div>
+
+        <!-- 隐藏参数输入（供 JS 读取） -->
+        <input type="hidden" id="param-year" value="2026">
+        <input type="hidden" id="param-month" value="5">
+        <input type="hidden" id="param-day" value="21">
+        <input type="hidden" id="param-hour" value="17">
+        <input type="hidden" id="param-minute" value="0">
+        <input type="hidden" id="param-sex" value="男">
+        <input type="hidden" id="param-birth-year" value="1990">
+        <input type="hidden" id="param-zhanshi" value="auto">
+        <input type="hidden" id="param-yuejiang" value="auto">
+        <span id="portal-disp-full" style="display:none"></span>
+    </div>
+
+    <!-- ========== 排盘结果页：传统中式风格 ========== -->
+    <div id="board-app" style="display:none">
         <header id="toolbar">
             <div class="brand">
+                <button id="btn-back-portal" class="btn btn-sm" title="返回时间参数">← 返回</button>
                 <div class="brand-icon">壬</div>
-                <h1>大六壬 · 排盘解盘</h1>
             </div>
             <div id="toolbar-actions">
-                <button id="btn-save-case" class="btn" title="保存当前盘式">存储案例</button>
-                <button id="btn-cases" class="btn" title="查看已保存案例">案例库</button>
-                <button id="btn-paipan" class="btn btn-primary">排 盘</button>
+                <button id="btn-save-case" class="btn btn-sm" title="保存当前盘式">存储</button>
+                <button id="btn-cases" class="btn btn-sm" title="查看已保存案例">案例库</button>
+                <button id="btn-history" class="btn btn-sm" title="查看起课历史记录">历史</button>
+                <span class="tb-sep"></span>
+                <button id="btn-view-board" class="btn btn-sm btn-primary" title="盘面视图" style="display:none">盘面</button>
+                <button id="btn-view-analysis" class="btn btn-sm" title="分析笔记" style="display:none">分析笔记</button>
+                <button id="btn-my-notes" class="btn btn-sm" title="撰写个人解读笔记" style="display:none">我的解读</button>
+                <button id="btn-correct-sc" class="btn btn-sm" title="手动矫正三传" style="display:none">矫正三传</button>
+                <button id="btn-correct-yj" class="btn btn-sm" title="手动矫正月将" style="display:none">矫正月将</button>
+                <span class="tb-sep"></span>
+                <button id="btn-export-img" class="btn btn-sm" title="导出图片">导出图片</button>
+                <button id="btn-classics" class="btn btn-sm" title="六壬典籍研习">典籍</button>
+                <span class="tb-sep"></span>
+                <button id="btn-upload-case" class="btn btn-sm" title="上传案例到中央系统" style="display:none">上传</button>
+                <button id="btn-admin-panel" class="btn btn-sm" title="管理审核" style="display:none;color:#b83a2e">审核</button>
+                <button id="btn-login" class="btn btn-sm" title="注册/登录">登录</button>
+                <span id="user-nick" style="font-size:11px;color:#6b6560;display:none;align-items:center;gap:4px"></span>
             </div>
         </header>
 
         <div id="main-layout">
-            <!-- 左侧参数 -->
-            <aside id="params-panel">
-                <div class="panel-title">时 间 参 数</div>
+            <!-- 隐藏参数 -->
+            <input type="hidden" id="board-param-year" value="2026">
+            <input type="hidden" id="board-param-month" value="5">
+            <input type="hidden" id="board-param-day" value="20">
+            <input type="hidden" id="board-param-hour" value="0">
+            <input type="hidden" id="board-param-minute" value="0">
+            <input type="hidden" id="board-param-zhanshi" value="auto">
+            <input type="hidden" id="board-param-yuejiang" value="auto">
+            <input type="hidden" id="board-param-sex" value="男">
+            <input type="hidden" id="board-param-birth-year" value="1990">
 
-                <!-- 时间输入 -->
-                <div class="param-group">
-                    <label>公历日期 & 时刻</label>
-                    <div class="date-row">
-                        <input type="number" id="param-year" class="date-inp year-inp" value="2026" min="1" max="2100">
-                        <span class="date-unit">年</span>
-                        <input type="number" id="param-month" class="date-inp" value="5" min="1" max="12">
-                        <span class="date-unit">月</span>
-                        <input type="number" id="param-day" class="date-inp" value="20" min="1" max="31">
-                        <span class="date-unit">日</span>
-                        <input type="number" id="param-hour" class="date-inp" value="0" min="0" max="23">
-                        <span class="date-unit">时</span>
-                        <input type="number" id="param-minute" class="date-inp" value="0" min="0" max="59">
-                        <span class="date-unit">分</span>
-                    </div>
-                    <div class="date-quick">
-                        <span class="date-show" id="disp-full">2026年5月20日 00:00</span>
-                        <button id="btn-current-time" class="btn btn-sm">此刻</button>
-                    </div>
-                </div>
-
-                <!-- 占时/月将 隐藏，自动推算 -->
-                <input type="hidden" id="param-zhanshi" value="auto">
-                <input type="hidden" id="param-yuejiang" value="auto">
-
-                <div class="param-group">
-                    <label>性别 · 本命年 · 干支</label>
-                    <div class="param-row">
-                        <select id="param-sex"><option value="男">男</option><option value="女">女</option></select>
-                        <input type="number" id="param-birth-year" value="1990" min="1" max="2100" placeholder="生年">
-                        <input type="text" id="param-birth-ganzhi" placeholder="如 庚午" maxlength="2" style="width:60px">
-                    </div>
-                </div>
-
-                <button id="btn-update" class="btn btn-gold">更 新 盘 面</button>
-
-                <div class="info-card">
-                    <div><span class="info-label">月将：</span><span class="info-value" id="info-yuejiang">--</span></div>
-                    <div><span class="info-label">节气：</span><span class="info-value" id="info-jieqi">--</span></div>
-                </div>
-            </aside>
-
-            <!-- 中间盘面 -->
-            <main id="board-panel">
-                <!-- 卦头信息 -->
+            <!-- 盘面视图 -->
+            <main id="board-view">
                 <div id="board-info">
                     <div class="info-tag" id="sizhu-display"><span class="label">四柱</span><span class="value gold">--</span></div>
                     <div class="info-tag" id="sanchuan-display"><span class="label">三传</span><span class="value red">--</span></div>
                     <div class="info-tag" id="method-display"><span class="label">课式</span><span class="value red">--</span></div>
+                    <div class="info-tag"><span class="label">月将</span><span class="value" id="info-yuejiang">--</span></div>
+                    <div class="info-tag"><span class="label">节气</span><span class="value" id="info-jieqi">--</span></div>
+                    <div class="info-tag"><span class="label">行年</span><span class="value" id="info-xingnian">--</span></div>
                 </div>
 
                 <div id="board-container">
                     <div id="board-placeholder"><div class="placeholder-icon">☰</div><div>点击「排盘」开始占卜</div></div>
                 </div>
 
-                <!-- 四课（HTML 卡片） -->
                 <div id="sike-container" class="card-section"></div>
-
-                <!-- 三传（HTML 卡片） -->
                 <div id="sanchuan-container" class="card-section"></div>
+            </main>
+
+            <!-- 分析笔记视图（独立页面） -->
+            <main id="analysis-view" style="display:none">
+                <div class="analysis-header">
+                    <span class="analysis-title">✎ 分析笔记</span>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span id="analysis-status" style="font-size:0.7rem;color:var(--text3)"></span>
+                        <button id="btn-analysis-save" class="btn btn-sm btn-primary">保存</button>
+                    </div>
+                </div>
+                <div id="analysis-body">
+                    <div class="analysis-grid">
+                        <div class="analysis-block">
+                            <label>课式总判</label>
+                            <textarea class="analysis-field" id="af-keshi" rows="4" placeholder="课式判断、九宗门特点、整体吉凶..."></textarea>
+                        </div>
+                        <div class="analysis-block">
+                            <label>三传分析</label>
+                            <textarea class="analysis-field" id="af-sanchuan" rows="4" placeholder="初传发端、中传移易、末传归计，各自六亲天将..."></textarea>
+                        </div>
+                        <div class="analysis-block">
+                            <label>四课格局</label>
+                            <textarea class="analysis-field" id="af-sike" rows="4" placeholder="干支关系、上下神克应、日辰生克..."></textarea>
+                        </div>
+                        <div class="analysis-block">
+                            <label>神煞与天将</label>
+                            <textarea class="analysis-field" id="af-shensha" rows="4" placeholder="神煞配合、天将临宫论象..."></textarea>
+                        </div>
+                    </div>
+                    <div class="analysis-block" style="grid-column:1/-1">
+                        <label>综合断语</label>
+                        <textarea class="analysis-field" id="af-zonghe" rows="5" placeholder="综合判断、应期推断、趋避建议..."></textarea>
+                    </div>
+                    <div style="font-size:0.65rem;color:var(--text3);margin-top:8px">Ctrl+S 快捷保存 · 分析笔记将存入案例的个人解读中</div>
+                </div>
             </main>
 
             <!-- 右侧对话 -->
             <section id="chat-panel">
                 <div class="panel-title">解 盘 对 话</div>
+                <!-- Skill 选择器 -->
+                <div id="chat-skill-bar">
+                    <select id="chat-skill-select">
+                        <option value="auto">自动选择 Skill</option>
+                    </select>
+                    <span id="chat-skill-label" style="font-size:10px;color:#6b6560;display:none"></span>
+                </div>
                 <div id="chat-messages"></div>
                 <div id="chat-quick-actions">
                     <button class="btn btn-sm" data-query="总览">总览</button>
@@ -104,7 +377,222 @@
                     <input type="text" id="chat-input" placeholder="输入问题深入解读...">
                     <button id="btn-chat-send" class="btn btn-primary">发送</button>
                 </div>
+                <div id="chat-style-toggle" style="padding:4px 8px;border-top:1px solid #e0d5c1;display:flex;align-items:center;gap:6px;font-size:0.7rem;">
+                    <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text3)">
+                        <input type="checkbox" id="chk-personal-style"> 参考我的解读风格
+                    </label>
+                    <span id="style-hint" style="color:var(--bronze);font-size:0.6rem;display:none"></span>
+                </div>
             </section>
+        </div>
+
+        <!-- 存储弹窗 -->
+        <div id="save-modal" class="modal" style="display:none">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">储 存 案 例</span>
+                    <button id="btn-close-save" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:16px">
+                    <div class="form-row">
+                        <label>名称（留空自动生成）</label>
+                        <input type="text" id="save-name-input" placeholder="例：某地震前兆课式">
+                    </div>
+                    <div class="form-row">
+                        <label>标签 <span style="color:var(--text3);font-size:0.65rem">（可多选，可自定义）</span></label>
+                        <div style="display:flex;gap:6px;align-items:center">
+                            <input type="text" id="save-tag-input" placeholder="输入新标签或选择已有..."
+                                style="flex:1;padding:6px 10px;border:1px solid var(--border-s);border-radius:6px;font-size:0.8rem;font-family:inherit;color:var(--text)">
+                            <button id="btn-add-tag" class="btn btn-sm" style="white-space:nowrap">添加</button>
+                        </div>
+                        <div id="save-tags-display" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;min-height:20px"></div>
+                        <div id="save-tags-suggestions" style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">
+                            <span style="font-size:0.65rem;color:var(--text3)">常用：</span>
+                        </div>
+                    </div>
+                    <div class="form-actions" style="margin-top:12px">
+                        <button id="btn-cancel-save" class="btn btn-sm">取消</button>
+                        <button id="btn-confirm-save" class="btn btn-primary btn-sm">保存</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 三传矫正弹窗 -->
+        <div id="correct-sc-modal" class="modal" style="display:none">
+            <div class="modal-content" style="width:420px;max-width:90vw">
+                <div class="modal-header">
+                    <span class="modal-title">矫 正 三 传</span>
+                    <button id="btn-close-correct-sc" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:16px">
+                    <div class="form-row">
+                        <label>课式（九宗门）</label>
+                        <select id="correct-sc-method" style="padding:6px 8px;border:1px solid #e0d5c1;border-radius:6px;font-family:inherit;font-size:0.85rem;background:#fefcf7;color:#2c2416">
+                            <option value="元首">元首</option><option value="重审">重审</option>
+                            <option value="比用">比用</option><option value="涉害">涉害</option>
+                            <option value="遥克">遥克</option><option value="蒿矢">蒿矢</option>
+                            <option value="弹射">弹射</option>
+                            <option value="昴星">昴星</option>
+                            <option value="别责">别责</option>
+                            <option value="八专">八专</option>
+                            <option value="伏吟">伏吟</option><option value="返吟">返吟</option>
+                        </select>
+                    </div>
+                    <div class="form-row" style="display:flex;gap:10px">
+                        <div style="flex:1"><label>初传</label>
+                            <select id="correct-sc-c" style="width:100%;padding:6px;border:1px solid #e0d5c1;border-radius:6px;font-family:inherit;font-size:1rem;background:#fefcf7;text-align:center">
+                                <option value="">--</option><option>子</option><option>丑</option><option>寅</option><option>卯</option><option>辰</option><option>巳</option><option>午</option><option>未</option><option>申</option><option>酉</option><option>戌</option><option>亥</option>
+                            </select></div>
+                        <div style="flex:1"><label>中传</label>
+                            <select id="correct-sc-z" style="width:100%;padding:6px;border:1px solid #e0d5c1;border-radius:6px;font-family:inherit;font-size:1rem;background:#fefcf7;text-align:center">
+                                <option value="">--</option><option>子</option><option>丑</option><option>寅</option><option>卯</option><option>辰</option><option>巳</option><option>午</option><option>未</option><option>申</option><option>酉</option><option>戌</option><option>亥</option>
+                            </select></div>
+                        <div style="flex:1"><label>末传</label>
+                            <select id="correct-sc-m" style="width:100%;padding:6px;border:1px solid #e0d5c1;border-radius:6px;font-family:inherit;font-size:1rem;background:#fefcf7;text-align:center">
+                                <option value="">--</option><option>子</option><option>丑</option><option>寅</option><option>卯</option><option>辰</option><option>巳</option><option>午</option><option>未</option><option>申</option><option>酉</option><option>戌</option><option>亥</option>
+                            </select></div>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;font-size:0.65rem;color:var(--text3)">
+                        <span id="correct-sc-original"></span>
+                    </div>
+                    <div class="form-actions" style="margin-top:12px">
+                        <button id="btn-reset-sc" class="btn btn-sm" style="color:var(--text3)">恢复自动</button>
+                        <button id="btn-cancel-correct-sc" class="btn btn-sm">取消</button>
+                        <button id="btn-apply-correct-sc" class="btn btn-primary btn-sm">应用矫正</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 月将矫正弹窗 -->
+        <div id="correct-yj-modal" class="modal" style="display:none">
+            <div class="modal-content" style="width:340px;max-width:90vw">
+                <div class="modal-header">
+                    <span class="modal-title">矫 正 月 将</span>
+                    <button id="btn-close-correct-yj" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:16px">
+                    <div class="form-row">
+                        <label>月将（十二地支）</label>
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:6px">
+                            <button class="yj-opt" data-yj="子">子</button><button class="yj-opt" data-yj="丑">丑</button>
+                            <button class="yj-opt" data-yj="寅">寅</button><button class="yj-opt" data-yj="卯">卯</button>
+                            <button class="yj-opt" data-yj="辰">辰</button><button class="yj-opt" data-yj="巳">巳</button>
+                            <button class="yj-opt" data-yj="午">午</button><button class="yj-opt" data-yj="未">未</button>
+                            <button class="yj-opt" data-yj="申">申</button><button class="yj-opt" data-yj="酉">酉</button>
+                            <button class="yj-opt" data-yj="戌">戌</button><button class="yj-opt" data-yj="亥">亥</button>
+                        </div>
+                    </div>
+                    <div style="margin-top:8px;font-size:0.7rem;color:var(--text3)">
+                        当前自动推算：<span id="correct-yj-original" style="color:#C73E3A">--</span>
+                    </div>
+                    <div style="margin-top:6px;font-size:0.6rem;color:var(--bronze)">
+                        月将改变后会完整重建天地盘、四课和三传
+                    </div>
+                    <div class="form-actions" style="margin-top:12px">
+                        <button id="btn-cancel-correct-yj" class="btn btn-sm">取消</button>
+                        <button id="btn-apply-correct-yj" class="btn btn-primary btn-sm">应用矫正</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 起课历史记录 -->
+        <div id="history-modal" class="modal" style="display:none">
+            <div class="modal-content" style="width:420px;max-width:92vw">
+                <div class="modal-header">
+                    <span class="modal-title">起 课 历 史</span>
+                    <div style="display:flex;gap:6px;align-items:center">
+                        <button id="btn-clear-history" class="btn btn-sm" style="font-size:10px;color:#b83a2e;background:transparent;border:1px solid rgba(184,58,46,0.2);padding:3px 8px;">清空</button>
+                        <button id="btn-close-history" class="btn btn-sm">&times;</button>
+                    </div>
+                </div>
+                <div id="history-list" style="max-height:60vh;overflow-y:auto;padding:4px 12px 12px">
+                    <div style="text-align:center;color:#9a948c;padding:40px 0">加载中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI 解读反馈弹窗 -->
+        <div id="feedback-modal" class="modal" style="display:none">
+            <div class="modal-content" style="width:400px;max-width:92vw">
+                <div class="modal-header">
+                    <span class="modal-title">反 馈 纠 错</span>
+                    <button id="btn-close-feedback" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:16px">
+                    <div class="form-row">
+                        <label style="font-size:13px">AI 解读是否正确？</label>
+                        <div style="display:flex;gap:8px;margin-top:4px">
+                            <button id="fb-accurate" class="btn btn-sm" style="flex:1;border-color:#2d8a56;color:#2d8a56">准确</button>
+                            <button id="fb-inaccurate" class="btn btn-sm" style="flex:1;border-color:#b83a2e;color:#b83a2e">不准确</button>
+                        </div>
+                    </div>
+                    <div class="form-row" id="fb-correction-row" style="display:none">
+                        <label>哪里不对？请具体说明</label>
+                        <textarea id="fb-correction" rows="3" placeholder="例如：三传说错了，初传应该是..."></textarea>
+                    </div>
+                    <div class="form-row">
+                        <label>实际结果（可选）</label>
+                        <input type="text" id="fb-outcome" placeholder="后来实际发生了...">
+                    </div>
+                    <button id="btn-submit-feedback" class="btn btn-primary" style="width:100%;margin-top:4px">提交反馈</button>
+                    <div id="fb-msg" style="text-align:center;font-size:12px;margin-top:6px;display:none"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 管理员审核面板 -->
+        <div id="admin-modal" class="modal" style="display:none">
+            <div class="modal-content" style="width:480px;max-width:94vw">
+                <div class="modal-header">
+                    <span class="modal-title">管 理 审 核</span>
+                    <button id="btn-close-admin" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:4px 12px 12px">
+                    <div id="admin-tabs" style="display:flex;gap:0;margin-bottom:10px;border-bottom:2px solid #e5dcc8">
+                        <button class="admin-tab active" data-tab="uploads" style="flex:1;padding:8px;border:none;background:none;font-family:inherit;font-size:12px;cursor:pointer;color:#1a1614;border-bottom:2px solid #b83a2e;margin-bottom:-2px">案例审核</button>
+                        <button class="admin-tab" data-tab="users" style="flex:1;padding:8px;border:none;background:none;font-family:inherit;font-size:12px;cursor:pointer;color:#6b6560;border-bottom:2px solid transparent;margin-bottom:-2px">用户管理</button>
+                    </div>
+                    <div id="admin-uploads-panel">
+                        <div id="admin-upload-list" style="max-height:50vh;overflow-y:auto"></div>
+                    </div>
+                    <div id="admin-users-panel" style="display:none">
+                        <div id="admin-user-list" style="max-height:50vh;overflow-y:auto"></div>
+                    </div>
+                    <div id="admin-msg" style="text-align:center;font-size:12px;margin-top:8px;display:none"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 个人解读笔记编辑器 -->
+        <div id="notes-modal" class="modal" style="display:none">
+            <div class="modal-content notes-modal-content">
+                <div class="modal-header">
+                    <span class="modal-title">✎ 个人解读笔记</span>
+                    <button id="btn-close-notes" class="btn btn-sm">&times;</button>
+                </div>
+                <div style="padding:16px">
+                    <div class="form-row" style="margin-bottom:8px">
+                        <label id="notes-case-label" style="color:var(--gold);font-size:0.85rem">--</label>
+                    </div>
+                    <div class="form-row">
+                        <textarea id="notes-editor" placeholder="在此写入你的个人解盘逻辑、分析思路、心得体悟...
+
+系统将在后续解读类似课盘时参考你的笔记风格和分析框架。
+持续积累，AI 将逐渐学习你的解盘思维模式。"
+                            style="width:100%;min-height:280px;padding:12px;border:1px solid #e0d5c1;border-radius:8px;font-family:'Noto Serif SC',serif;font-size:0.85rem;line-height:1.8;resize:vertical;background:#fefcf7;color:#2c2416;"></textarea>
+                    </div>
+                    <div class="form-row" style="margin-top:6px">
+                        <span id="notes-status" style="font-size:0.7rem;color:var(--text3)"></span>
+                    </div>
+                    <div class="form-actions">
+                        <button id="btn-cancel-notes" class="btn btn-sm">取消</button>
+                        <button id="btn-save-notes" class="btn btn-primary btn-sm">保存笔记</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- 案例库弹窗 -->
@@ -134,9 +622,104 @@
         </div>
     </div>
 
-    <script src="/static/js/params.js"></script>
-    <script src="/static/js/pan-renderer.js"></script>
-    <script src="/static/js/chat.js"></script>
-    <script src="/static/js/app.js"></script>
+    <!-- ========== 典籍研习抽屉 ========== -->
+    <div id="classics-overlay"></div>
+    <div id="classics-drawer">
+        <div class="cls-header">
+            <div class="cls-header-left">
+                <div class="cls-icon">典</div>
+                <span class="cls-title">六壬典籍研习</span>
+            </div>
+            <div class="cls-header-actions">
+                <button class="cls-btn" id="cls-btn-back-catalog" title="返回目录">目录</button>
+                <button class="cls-btn-close" id="cls-btn-close-drawer">&times;</button>
+            </div>
+        </div>
+        <div class="cls-search">
+            <input type="text" id="cls-search-input" placeholder="搜索典籍内容...">
+            <button class="cls-btn" id="cls-btn-search">搜索</button>
+        </div>
+        <div class="cls-body" id="cls-body-main">
+            <!-- 默认: 书籍列表 + 占位 -->
+            <div class="cls-sidebar" id="cls-sidebar"></div>
+            <div class="cls-toc" id="cls-toc"></div>
+            <div class="cls-content" id="cls-content">
+                <div class="cls-empty">
+                    <span class="cls-empty-icon">📚</span>
+                    <span>选择一本书籍开始研习</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 登录弹窗 -->
+    <div id="login-modal" class="modal" style="display:none">
+        <div class="modal-content" style="width:380px;max-width:92vw">
+            <div class="modal-header">
+                <span class="modal-title">登 录 大 六 壬</span>
+                <button id="btn-close-login" class="btn btn-sm">&times;</button>
+            </div>
+            <div style="padding:20px">
+                <!-- 邮箱登录表单 -->
+                <div id="login-form">
+                    <div class="form-row"><input type="email" id="login-email" placeholder="QQ邮箱" autocomplete="email" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
+                    <div class="form-row"><input type="password" id="login-password" placeholder="密码（6位以上）" autocomplete="current-password" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
+                    <div class="form-row" id="register-nickname-row" style="display:none"><input type="text" id="register-nickname" placeholder="昵称（选填）" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
+                    <div style="display:flex;gap:8px;margin-top:4px">
+                        <button id="btn-email-login" style="flex:1;padding:10px;background:#3a3632;color:#f5f0e6;border:none;border-radius:6px;font-size:14px;font-family:inherit;cursor:pointer">登录</button>
+                        <button id="btn-email-register" style="flex:1;padding:10px;background:transparent;color:#3a3632;border:1px solid #b83a2e;border-radius:6px;font-size:14px;font-family:inherit;cursor:pointer">注册</button>
+                    </div>
+
+                    <!-- 验证码快捷登录（需SMTP配置） -->
+                    <div id="code-login-area" style="margin-top:12px;padding-top:10px;border-top:1px solid #e5dcc8">
+                        <div style="display:flex;gap:6px">
+                            <button id="btn-send-code" style="flex:1;padding:8px;background:none;color:#6b6560;border:1px dashed #c4b393;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer">验证码登录（免密码）</button>
+                        </div>
+                        <div style="font-size:10px;color:#9a948c;margin-top:4px" id="send-code-hint"></div>
+                        <div class="form-row" id="code-input-row" style="display:none">
+                            <input type="text" id="login-code" placeholder="输入6位验证码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:18px;letter-spacing:6px;text-align:center;box-sizing:border-box;background:#fffef9">
+                        </div>
+                        <button id="btn-verify-code" style="display:none;width:100%;padding:8px;background:#b83a2e;color:#fff;border:none;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;margin-top:4px">验证并登录</button>
+                    </div>
+
+                    <div id="login-msg" style="text-align:center;font-size:12px;margin-top:10px;display:none"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/particles.js?v=5"></script>
+    <script src="/static/js/params.js?v=5"></script>
+    <script src="/static/js/pan-renderer.js?v=9"></script>
+    <script src="/static/js/chat.js?v=6"></script>
+    <script src="/static/js/classics.js?v=5"></script>
+    <script src="/static/js/user.js?v=10"></script>
+    <script src="/static/js/admin.js?v=1"></script>
+    <script src="/static/js/app.js?v=14"></script>
+    <script>
+    // ====== PWA Service Worker 注册 + 安装提示 ======
+    let _installPrompt = null;
+
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/service-worker.js').then(function(reg) {
+            console.log('[PWA] SW registered:', reg.scope);
+        }).catch(function(err) {
+            console.error('[PWA] SW registration failed:', err);
+        });
+    }
+
+    // 拦截 beforeinstallprompt 事件（浏览器自动弹出的"添加到桌面"）
+    window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        _installPrompt = e;
+        console.log('[PWA] Install prompt ready');
+    });
+
+    // 用户完成安装后清除
+    window.addEventListener('appinstalled', function() {
+        _installPrompt = null;
+        console.log('[PWA] App installed');
+    });
+    </script>
 </body>
 </html>

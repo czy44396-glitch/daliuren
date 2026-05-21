@@ -4,9 +4,23 @@
  */
 
 const DZ = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
-const WXC = {"木":"#2d7d46","火":"#c94043","土":"#b8860b","金":"#d4a843","水":"#1a3a5c"};
-const ZWX = {"子":"水","丑":"土","寅":"木","卯":"木","辰":"土","巳":"火","午":"火","未":"土","申":"金","酉":"金","戌":"土","亥":"水"};
+// 地支直配色（不经过五行中转，避免中文 key 解析异常）
+const DZC = {
+    "子":"#1a3a5c", "亥":"#1a3a5c",
+    "丑":"#b8860b", "未":"#b8860b", "辰":"#b8860b", "戌":"#b8860b",
+    "巳":"#c94043", "午":"#c94043",
+    "寅":"#2d7d46", "卯":"#2d7d46",
+    "申":"#d4a843", "酉":"#d4a843",
+};
 const TJS = {"贵人":"贵","螣蛇":"蛇","朱雀":"朱","六合":"合","勾陈":"勾","青龙":"龙","天空":"空","白虎":"虎","太常":"常","玄武":"玄","太阴":"阴","天后":"后"};
+// 天将直配色
+const TJC = {
+    "贵人":"#b8860b", "天空":"#b8860b", "勾陈":"#b8860b", "太常":"#b8860b",
+    "青龙":"#2d7d46", "六合":"#2d7d46",
+    "白虎":"#d4a843", "太阴":"#d4a843",
+    "天后":"#1a3a5c", "玄武":"#1a3a5c",
+    "螣蛇":"#c94043", "朱雀":"#c94043",
+};
 
 // 4x4 对称方图 (每边 4 地支, 四角共用)
 //   巳 午 未 申
@@ -56,8 +70,7 @@ function _renderTiandiPanSVG(data) {
         const tian = td[di] || "";
         const jiang = tj[di] || "";
         const dun = dg[di] || "";
-        const wx = ZWX[di];
-        const clr = WXC[wx] || "#2c2416";
+        const clr = DZC[di] || "#2c2416";
         const tianK = xk.includes(tian); // 天盘地支是否空亡
         const diK = xk.includes(di);     // 地盘地支是否空亡
         const cx = ox + c * (cw + gap);
@@ -67,16 +80,21 @@ function _renderTiandiPanSVG(data) {
         h += `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="5"
             fill="#fefcf7" stroke="${clr}" stroke-width="2"/>`;
 
-        // 天将简称 — 左上角
+        // 遁干 — 天将头顶
         const tjS = TJS[jiang] || "";
-        h += `<text x="${cx+12}" y="${cy+18}" font-size="12" fill="#8b1a2b"
-            font-family="var(--font-sans)" font-weight="600">${tjS}</text>`;
+        const tjClr = TJC[jiang] || "#8b1a2b";
+        h += `<text x="${cx+cw/2}" y="${cy+ch/2-30}" font-size="11" fill="#6b5e4a"
+            font-family="var(--font-serif)" text-anchor="middle">${dun}</text>`;
+
+        // 天将简称 — 天盘地支头顶
+        h += `<text x="${cx+cw/2}" y="${cy+ch/2-13}" font-size="18" fill="${tjClr}"
+            font-family="var(--font-sans)" font-weight="600" text-anchor="middle">${tjS}</text>`;
 
         // 天盘地支 — 大字居中（空亡加虚线圆圈）
         if (tianK) {
-            h += `<circle cx="${cx+cw/2}" cy="${cy+ch/2+2}" r="22" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+            h += `<circle cx="${cx+cw/2}" cy="${cy+ch/2+8}" r="22" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
         }
-        h += `<text x="${cx+cw/2}" y="${cy+ch/2+6}" font-size="28" font-weight="700"
+        h += `<text x="${cx+cw/2}" y="${cy+ch/2+16}" font-size="28" font-weight="700"
             fill="${tianK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="middle">${tian}</text>`;
 
         // 地盘地支 — 右下角（空亡加虚线框）
@@ -85,10 +103,6 @@ function _renderTiandiPanSVG(data) {
         }
         h += `<text x="${cx+cw-14}" y="${cy+ch-8}" font-size="14" font-weight="600"
             fill="${diK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="end">${di}</text>`;
-
-        // 旬遁 — 底部居中
-        h += `<text x="${cx+cw/2}" y="${cy+ch-5}" font-size="10" fill="#6b5e4a"
-            font-family="var(--font-serif)" text-anchor="middle">${dun}</text>`;
     }
 
     // 方位标注 — 午(0,1)北, 子(3,2)南
@@ -121,8 +135,8 @@ function _renderSikeHTML(data) {
         const sn = sike[i]["上神"];
         const dp = sike[i]["地盘"];
         const lq = slq[i] ? slq[i]["六亲"] : "";
-        const clrSn = WXC[ZWX[sn]] || "#2c2416";
-        const clrDp = WXC[ZWX[dp]] || "#2c2416";
+        const clrSn = DZC[sn] || "#2c2416";
+        const clrDp = DZC[dp] || "#2c2416";
         const tj = tjForSike[i];
         const dg = dgForSike[i];
 
@@ -145,22 +159,25 @@ function _renderSanchuanHTML(data) {
     const sc = data["三传"];
     const sl = data["三传六亲"] || {};
     const st = data["三传天将"] || {};
+    const dgAll = data["遁干"] || {};
     if (!sc) { container.innerHTML = ''; return; }
 
     const its = [
-        {l:"初传",z:sc["初传"],q:sl["初传"]||"",j:st["初传"]||""},
-        {l:"中传",z:sc["中传"],q:sl["中传"]||"",j:st["中传"]||""},
-        {l:"末传",z:sc["末传"],q:sl["末传"]||"",j:st["末传"]||""},
+        {z:sc["初传"],q:sl["初传"]||"",j:st["初传"]||"",d:dgAll[sc["初传"]]||""},
+        {z:sc["中传"],q:sl["中传"]||"",j:st["中传"]||"",d:dgAll[sc["中传"]]||""},
+        {z:sc["末传"],q:sl["末传"]||"",j:st["末传"]||"",d:dgAll[sc["末传"]]||""},
     ];
 
-    let h = `<div class="section-title">三 传 <span class="method-badge">${sc["方法"]}课</span></div>`;
+    let h = `<div class="section-title">三 传</div>`;
     h += '<div class="sanchuan-col">';
     for (let i = 0; i < its.length; i++) {
-        const clr = WXC[ZWX[its[i].z]] || "#2c2416";
-        h += `<div class="sc-cell-v">
-            <div class="sc-zhi" style="border-color:${clr};color:${clr}">${its[i].z}</div>
-            <div class="sc-label">${its[i].l}</div>
-            <div class="sc-meta">${its[i].q} · ${its[i].j}</div>
+        const clr = DZC[its[i].z] || "#2c2416";
+        const tjShort = TJS[its[i].j] || its[i].j;
+        h += `<div class="sc-cell-h">
+            <span class="sc-liuqin" style="color:${clr}">${its[i].q}</span>
+            <span class="sc-zhi" style="border-color:${clr};color:${clr}">${its[i].z}</span>
+            <span class="sc-jiang">${tjShort}</span>
+            <span class="sc-dungan">${its[i].d}</span>
         </div>`;
         if (i < 2) h += '<div class="sc-arrow-dn">↓</div>';
     }
@@ -181,7 +198,7 @@ function _renderShashenHTML(data) {
         if (!items || Object.keys(items).length === 0) continue;
         h += `<div class="ss-cat">${catNames[cat] || cat}</div>`;
         for (const [name, zhi] of Object.entries(items)) {
-            const clr = zhi && ZWX[zhi] ? WXC[ZWX[zhi]] : '#9c8b72';
+            const clr = zhi && DZC[zhi] ? DZC[zhi] : '#9c8b72';
             h += `<div class="ss-row">
                 <span class="ss-name">${name}</span>
                 <span class="ss-zhi" style="color:${clr}">${zhi || '—'}</span>
@@ -212,10 +229,17 @@ function _renderInfoHTML(data) {
 
     // 节气详情
     const jqData = data["节气"] || {};
-    const yj = document.getElementById('info-yuejiang');
-    if (yj) yj.textContent = pm["月将"] || '--';
-    const jq = document.getElementById('info-jieqi');
-    if (jq) {
-        jq.innerHTML = `${jqData["当前节气"]||'—'} → ${jqData["下一节气"]||'—'} · ${sj["昼夜"]||''}`;
+    const yjEl = document.getElementById('info-yuejiang');
+    if (yjEl) yjEl.textContent = pm["月将"] || '--';
+    const jqEl = document.getElementById('info-jieqi');
+    if (jqEl) {
+        jqEl.innerHTML = `${jqData["当前节气"]||'—'} → ${jqData["下一节气"]||'—'} · ${sj["昼夜"]||''}`;
+    }
+    // 行年
+    const xnEl = document.getElementById('info-xingnian');
+    if (xnEl) {
+        const xn = data["行年"] || '';
+        const xnInfo = data["行年详情"] || {};
+        xnEl.textContent = xn ? `${xn}（${xnInfo["年龄"]||''}岁）` : '--';
     }
 }

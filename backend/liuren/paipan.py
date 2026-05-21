@@ -153,9 +153,11 @@ def paipan(
     # 11. 年命/行年
     benming = get_benming(birth_ganzhi, sex)
     if birth_year:
-        xingnian = get_xingnian(birth_year, year, sex)
+        xn_info = get_xingnian(birth_year, year, sex)
+        xingnian = xn_info.get("行年地支", "")
     else:
         xingnian = ""
+        xn_info = {}
 
     # 12. 神煞
     tianma = get_tianma(ri_zhi)
@@ -228,5 +230,6 @@ def paipan(
         "遁干": dungan,
         "年命": benming,
         "行年": xingnian,
+        "行年详情": xn_info,
         "神煞": shensha,
     }

@@ -1,0 +1,22 @@
+{
+  "name": "大六壬 · 排盘解盘",
+  "short_name": "大六壬",
+  "description": "大六壬占卜排盘解盘系统 — 天地盘、四课、三传、九宗门",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f0e6",
+  "theme_color": "#8b1a2b",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
