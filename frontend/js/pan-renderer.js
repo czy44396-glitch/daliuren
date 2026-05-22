@@ -128,7 +128,9 @@ function _renderSikeHTML(data) {
     if (!sike || !slq) { container.innerHTML = ''; return; }
 
     // 为四课上神找对应天将：上神坐在地盘X, 查X的天将
-    const tjForSike = sike.map(sk => TJS[tjAll[sk["地盘地支"] || sk["地盘"]]] || "");
+    const tjFullForSike = sike.map(sk => tjAll[sk["地盘地支"] || sk["地盘"]] || "");
+    const tjForSike = tjFullForSike.map(tj => TJS[tj] || "");
+    const tjClrForSike = tjFullForSike.map(tj => TJC[tj] || "#8b1a2b");
     // 为四课上神找遁干
     const dgForSike = sike.map(sk => dgAll[sk["上神"]] || "");
 
@@ -141,11 +143,12 @@ function _renderSikeHTML(data) {
         const clrSn = snKong ? '#bbb' : (DZC[sn] || "#2c2416");
         const clrDp = DZC[dp] || "#2c2416";
         const tj = tjForSike[i];
+        const tjClr = tjClrForSike[i];
         const dg = dgForSike[i];
 
         h += `<div class="sike-cell${snKong ? ' sike-kong' : ''}">
             <div class="sike-dungan">${dg}</div>
-            <div class="sike-jiang">${tj}</div>
+            <div class="sike-jiang" style="color:${tjClr}">${tj}</div>
             <div class="sike-shang" style="color:${clrSn}">${sn}</div>
             <div class="sike-di" style="color:${clrDp}">${dp}</div>
         </div>`;
@@ -176,10 +179,11 @@ function _renderSanchuanHTML(data) {
     for (let i = 0; i < its.length; i++) {
         const clr = DZC[its[i].z] || "#2c2416";
         const tjShort = TJS[its[i].j] || its[i].j;
+        const tjClr = TJC[its[i].j] || "#8b1a2b";
         h += `<div class="sc-cell-h">
             <span class="sc-liuqin" style="color:${clr}">${its[i].q}</span>
             <span class="sc-zhi" style="border-color:${clr};color:${clr}">${its[i].z}</span>
-            <span class="sc-jiang">${tjShort}</span>
+            <span class="sc-jiang" style="color:${tjClr}">${tjShort}</span>
             <span class="sc-dungan">${its[i].d}</span>
         </div>`;
         if (i < 2) h += '<div class="sc-arrow-dn">↓</div>';
