@@ -56,16 +56,13 @@ function exportCurrentPan() {
 // ====== WebSocket ======
 function connectWebSocket() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const token = (typeof User !== 'undefined' && User.getToken) ? User.getToken() : '';
     let url = `${proto}//${location.host}/ws/chat`;
-    if (token) url += `?token=${encodeURIComponent(token)}`;
     try {
         ws = new WebSocket(url);
         ws.onopen = () => {
             Chat.setWebSocket(ws);
             if (currentPanData) {
                 const msg = {type:'set_pan',data:currentPanData};
-                if (token) msg.token = token;
                 ws.send(JSON.stringify(msg));
             }
         };
@@ -78,10 +75,6 @@ function connectWebSocket() {
                         skill_name: m.skill_name,
                         skill_matched: m.skill_matched,
                     });
-                    // 更新配额显示
-                    if (m.quota) {
-                        try { User.refreshQuota(); } catch(e) {}
-                    }
                     if (m.style_used) {
                         const hint = document.getElementById('style-hint');
                         if (hint) {
@@ -1766,11 +1759,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 底部撕裂时空按钮
     document.getElementById('tear-portal-btn').addEventListener('click', function(e) {
-        // 登录门控：未登录弹出登录窗
-        if (typeof User !== 'undefined' && User.gateOrLogin && !User.gateOrLogin()) {
-            return;
-        }
-
         // 创建波纹
         const rect = this.getBoundingClientRect();
         const ripple = document.createElement('div');
@@ -1940,8 +1928,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 初始化各模块（各自隔离，互不影响）
-    try { User.init(); } catch(e) { console.warn('[app] User.init 失败:', e); }
-    try { Admin.init(); } catch(e) { console.warn('[app] Admin.init 失败:', e); }
     try { Chat.init(); } catch(e) { console.warn('[app] Chat.init 失败:', e); }
     try { Classics.init(); } catch(e) { console.warn('[app] Classics.init 失败:', e); }
     try { Chat.showWelcome(); } catch(e) { console.warn('[app] Chat.showWelcome 失败:', e); }

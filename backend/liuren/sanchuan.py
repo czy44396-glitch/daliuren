@@ -2,14 +2,15 @@
 三传推算 — 九宗门完整正确实现。
 
 判断优先级（依《六壬大全》）：
-  1. 伏吟/返吟（天地盘特殊格局先行判断）
-  2. 贼克（重审/元首）
-  3. 比用
-  4. 涉害（含孟仲季法）
-  5. 遥克（蒿矢/弹射）
-  6. 昴星（虎视/冬蛇掩目）
-  7. 别责
-  8. 八专
+  1. 伏吟（天地盘特殊格局）
+  2. 返吟（天地盘全冲，有克则走正常克法，无克则取驿马）
+  3. 贼克（重审/元首）— 贼(下克上)优先于克(上克下)
+  4. 比用 — 只在同优先级贼或克中比较
+  5. 涉害 — 同比时比较克数深浅，涉害同深取孟仲季
+  6. 遥克（蒿矢/弹射）— 同样走比用→涉害链
+  7. 昴星（虎视/冬蛇掩目）— 四课全异无克无遥
+  8. 别责 — 四课三异
+  9. 八专 — 八专日四课二异
 """
 
 from .basics import (
@@ -24,81 +25,161 @@ from .basics import (
 def _ke(tian: str, di: str) -> str | None:
     """判断一课的克关系。返回 'zei'(下克上), 'ke'(上克下), 或 None"""
     tw, dw = ZHI_WUXING[tian], ZHI_WUXING[di]
-    ke = {"木":"土","土":"水","水":"火","火":"金","金":"木"}
-    if ke.get(dw) == tw: return "zei"   # 下克上（贼）
-    if ke.get(tw) == dw: return "ke"    # 上克下（克）
+    ke_map = {"木": "土", "土": "水", "水": "火", "火": "金", "金": "木"}
+    if ke_map.get(dw) == tw:
+        return "zei"   # 下克上（贼）
+    if ke_map.get(tw) == dw:
+        return "ke"    # 上克下（克）
     return None
 
 
 def _same_yinyang(zhi: str, ri_gan: str) -> bool:
+    """上神地支与日干阴阳是否相同（比）"""
     return ZHI_YINYANG[zhi] == GAN_YINYANG[ri_gan]
-
-
-def _zhi_shang_shen(tiandipan: dict, di: str) -> str:
-    """地盘宫位 → 天盘上神"""
-    return tiandipan[di]
 
 
 def _tian_lin_di(tiandipan: dict, tian: str) -> str | None:
     """天盘神 → 所临地盘宫位"""
     for di, t in tiandipan.items():
-        if t == tian: return di
+        if t == tian:
+            return di
     return None
 
 
 # ========== 涉害深度计算 ==========
 
-def _shehai_depth(tian: str, di: str, ke_type: str) -> int:
+def _shehai_depth(tian: str, di: str, ke_type: str, tiandipan: dict) -> int:
     """
-    计算涉害深度。
-    从天盘所临地盘宫位顺时针巡行至本位（天盘神对应的地盘宫位），
-    途中统计发生克关系的次数（含寄宫天干）。
+    涉害深度：从地盘宫位 di 顺时针巡行十二宫，
+    回到天盘上神 tian 的本位（即 tian 自身在地盘的位置），
+    沿途每个宫位检查对应类型的克关系并计数。
+
+    标准涉害法：
+    - 以地盘宫位为起点，顺时针逐宫巡行
+    - 每到一宫，检查该宫天盘与地盘之间是否有指定类型的克
+    - 巡行至天盘上神本位为止
+    - 沿途克的总次数即为涉害深度
     """
     count = 0
     start_idx = ZHI_INDEX[di]
-    target = _tian_lin_di({}, tian)  # placeholder - we need tiandipan
-    # We'll pass tiandipan to the actual function
-    return count
-
-
-def _shehai_depth_full(tian: str, di: str, ke_type: str, tiandipan: dict) -> int:
-    """
-    涉害深度：从地盘宫位 di 顺时针巡行，回到天盘神 tian 的本位（即 tian 在地盘的位置），
-    沿途每个宫位检查克关系。
-    """
-    count = 0
-    start_idx = ZHI_INDEX[di]
+    target_idx = ZHI_INDEX[tian]  # 天盘上神本位
 
     for step in range(12):
-        cur_di = DIZHI[(start_idx + step) % 12]
+        cur_idx = (start_idx + step) % 12
+        cur_di = DIZHI[cur_idx]
         cur_tian = tiandipan[cur_di]
 
-        # 基础克：当前宫位的天盘 vs 地盘
         k = _ke(cur_tian, cur_di)
-
-        if ke_type == "zei":  # 下克上
+        if ke_type == "zei":
             if k == "zei":
                 count += 1
-            # 寄宫：地盘所寄天干被克也计入
-            for gan, ji_gong in GAN_JIGONG.items():
-                if ji_gong == cur_di:
-                    if ZHI_WUXING[cur_tian] != GAN_WUXING[gan]:
-                        pass  # 寄宫克检查（简化）
-        else:  # 上克下
+        else:  # ke_type == "ke"
             if k == "ke":
                 count += 1
 
-        # 到达天盘神的原位（地盘本位）
-        if cur_di == tian:
+        # 到达天盘上神本位则停止
+        if cur_idx == target_idx:
             break
 
     return count
 
 
+# ========== 克选择链：贼克分离 → 比用 → 涉害 → 孟仲季 ==========
+
+# 孟仲季分类
+_MENG = {"寅", "申", "巳", "亥"}
+_ZHONG = {"子", "午", "卯", "酉"}
+# 季 = 辰戌丑未（不在孟/仲中的即季）
+
+
+def _di_category(di: str) -> str:
+    """地盘宫位的孟仲季分类"""
+    if di in _MENG:
+        return "meng"
+    if di in _ZHONG:
+        return "zhong"
+    return "ji"
+
+
+def _select_by_shehai_mengzhongji(
+    tied_candidates: list[dict],
+    ri_gan: str,
+    sike: list,
+) -> dict:
+    """
+    涉害深度相同时，用孟仲季法选初传。
+    tied_candidates: 涉害深度相同的克候选 [{tian, di, type}, ...]
+
+    优先级：孟(寅申巳亥) > 仲(子午卯酉) > 季(辰戌丑未)
+    同在孟/仲/季则：阳日取干上神，阴日取支上神（缀瑕法）
+    """
+    meng = [k for k in tied_candidates if _di_category(k["di"]) == "meng"]
+    zhong = [k for k in tied_candidates if _di_category(k["di"]) == "zhong"]
+
+    if meng:
+        return meng[0]
+    if zhong:
+        return zhong[0]
+
+    # 都在季（辰戌丑未）→ 缀瑕：阳日取干上神（第一课），阴日取支上神（第三课）
+    if GAN_YINYANG[ri_gan] == "阳":
+        return {"tian": sike[0][0], "di": sike[0][1], "type": "ke"}
+    else:
+        return {"tian": sike[2][0], "di": sike[2][1], "type": "ke"}
+
+
+def _select_from_candidates(
+    candidates: list[dict],
+    ri_gan: str,
+    sike: list,
+    tiandipan: dict,
+) -> dict | None:
+    """
+    从一组克候选（已按贼优先筛选过的）中选出初传。
+
+    选择链：1个→直接返回; 多个→比用; 同比1个→返回;
+    同比多个→涉害; 涉害独深→返回; 同深→孟仲季。
+
+    返回选中的克候选 dict {tian, di, type}，或 None。
+    """
+    if not candidates:
+        return None
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # --- 比用：取与日干同阴阳者 ---
+    same = [k for k in candidates if _same_yinyang(k["tian"], ri_gan)]
+
+    if len(same) == 1:
+        return same[0]
+
+    # --- 涉害：计算深度 ---
+    # 确定用哪些候选做涉害比较
+    compare = same if same else candidates  # 俱不比则全部参与涉害
+
+    depths = []
+    for k in compare:
+        d = _shehai_depth(k["tian"], k["di"], k["type"], tiandipan)
+        depths.append((d, k))
+
+    # 按深度降序排列（克数多者优先）
+    depths.sort(key=lambda x: -x[0])
+    max_d = depths[0][0]
+
+    tie = [item[1] for item in depths if item[0] == max_d]
+
+    if len(tie) == 1:
+        return tie[0]
+
+    # --- 孟仲季法 ---
+    return _select_by_shehai_mengzhongji(tie, ri_gan, sike)
+
+
 # ========== 1. 伏吟/返吟检测 ==========
 
 def _check_fuyin(tiandipan: dict) -> bool:
-    """判断是否伏吟：天地盘重合，天盘每宫 == 地盘同宫"""
+    """判断是否伏吟：每宫天盘 == 地盘"""
     for di in DIZHI:
         if tiandipan[di] != di:
             return False
@@ -106,7 +187,7 @@ def _check_fuyin(tiandipan: dict) -> bool:
 
 
 def _check_fanyin(tiandipan: dict) -> bool:
-    """判断是否返吟：天地盘对冲（天盘每宫都是地盘对冲位）"""
+    """判断是否返吟：每宫天盘都是地盘对冲位"""
     for di in DIZHI:
         if tiandipan[di] != get_chong(di):
             return False
@@ -132,7 +213,7 @@ def get_sanchuan(
     推算三传。
 
     输入:
-      sike: [(上神, 地盘), ...]  四课
+      sike: [(上神, 地盘), ...] 四课
       ri_gan: 日干
       ri_zhi: 日支
       tiandipan: {地盘: 天盘神}
@@ -153,8 +234,9 @@ def get_sanchuan(
         if kt:
             ke_list.append({"idx": i, "tian": tian, "di": di, "type": kt})
 
-    # zei优先
-    ke_list.sort(key=lambda x: 0 if x["type"] == "zei" else 1)
+    # 区分贼和克（贼优先）
+    zei_list = [k for k in ke_list if k["type"] == "zei"]
+    ke_only_list = [k for k in ke_list if k["type"] == "ke"]
 
     chuchuan = None
     zhongchuan = None
@@ -165,19 +247,19 @@ def get_sanchuan(
     if is_fuyin:
         method = "伏吟"
         is_yang = GAN_YINYANG[ri_gan] == "阳"
-        # 阳日干上神(=寄宫), 阴日支上神(=日支)。伏吟中上神==地盘
-        gan_shang = GAN_JIGONG[ri_gan]     # 干上神
-        zhi_shang = ri_zhi                  # 支上神
+        gan_shang = GAN_JIGONG[ri_gan]   # 干上神（伏吟即寄宫）
+        zhi_shang = ri_zhi                # 支上神（伏吟即日支）
         ZIXING = {"辰", "午", "酉", "亥"}
 
         if ke_list:
             # ====== 规则 A：有克 ======
-            # 初传 = 有克课之上神（优先第一课）
-            chuchuan = ke_list[0]["tian"]
+            # 伏吟有克：直接用克选择链（伏吟中所有课地盘=上神，但有克关系时正常取）
+            selected = _select_from_candidates(ke_list, ri_gan, sike, tiandipan)
+            if selected:
+                chuchuan = selected["tian"]
 
-            # 中传 = 初传所刑
+            # 中传 = 初传所刑（伏吟特例）
             zhongchuan = get_xing(chuchuan)
-            # 特判：初传自刑 → 中传改为：阳日取支上神，阴日取干上神
             if chuchuan in ZIXING:
                 zhongchuan = zhi_shang if is_yang else gan_shang
 
@@ -186,23 +268,18 @@ def get_sanchuan(
             if zhongchuan in ZIXING:
                 mochuan = get_chong(zhongchuan)
         else:
-            # ====== 规则 B：无克 ======
+            # ====== 规则 B：无克（自任/自信格） ======
             if is_yang:
-                # 阳日「自任格」：初传 = 干上神
-                chuchuan = gan_shang
+                chuchuan = gan_shang  # 阳日自任格
             else:
-                # 阴日「自信格」：初传 = 支上神
-                chuchuan = zhi_shang
+                chuchuan = zhi_shang  # 阴日自信格
 
-            # 杜传格：初传自刑 → 中传改取
+            # 杜传格
             if chuchuan in ZIXING:
-                # 阳日取支上神，阴日取干上神
                 zhongchuan = zhi_shang if is_yang else gan_shang
             else:
-                # 中传 = 初传所刑
                 zhongchuan = get_xing(chuchuan)
 
-            # 末传 = 中传所刑；若中传自刑 → 末传 = 中传之冲
             mochuan = get_xing(zhongchuan)
             if zhongchuan in ZIXING:
                 mochuan = get_chong(zhongchuan)
@@ -211,106 +288,65 @@ def get_sanchuan(
     elif is_fanyin:
         method = "返吟"
         if ke_list:
-            chuchuan = ke_list[0]["tian"]
+            # ====== 返吟有克：走正常克选择链 ======
+            candidates = zei_list if zei_list else ke_only_list
+            selected = _select_from_candidates(candidates, ri_gan, sike, tiandipan)
+            if selected:
+                chuchuan = selected["tian"]
         else:
+            # ====== 返吟无克：取驿马 ======
             tianma = get_tianma(ri_zhi)
             chuchuan = tiandipan.get(tianma, sike[0][0])
 
-    # ============ 贼克（重审/元首） ============
-    elif len(ke_list) == 1:
-        k = ke_list[0]
-        method = "重审" if k["type"] == "zei" else "元首"
-        chuchuan = k["tian"]
+    # ============ 正常克（非伏吟非返吟） ============
+    elif ke_list:
+        # 贼优先：有贼只取贼，无贼才取克
+        candidates = zei_list if zei_list else ke_only_list
 
-    # ============ 比用 ============
-    elif len(ke_list) >= 2:
-        same = [k for k in ke_list if _same_yinyang(k["tian"], ri_gan)]
-
-        if len(same) == 1:
-            method = "比用"
-            chuchuan = same[0]["tian"]
-
-        elif len(same) >= 2:
-            # ============ 涉害 ============
-            method = "涉害"
-            depths = []
-            for k in same:
-                d = _shehai_depth_full(k["tian"], k["di"], k["type"], tiandipan)
-                depths.append((d, k))
-            depths.sort(key=lambda x: -x[0])
-            max_d = depths[0][0]
-
-            tie = [item for item in depths if item[0] == max_d]
-            if len(tie) == 1:
-                chuchuan = tie[0][1]["tian"]
+        selected = _select_from_candidates(candidates, ri_gan, sike, tiandipan)
+        if selected:
+            chuchuan = selected["tian"]
+            # 确定方法名
+            if zei_list:
+                method = "重审" if len(zei_list) == 1 else "涉害"
+                # 如果经过了比用
+                same_count = len([k for k in zei_list if _same_yinyang(k["tian"], ri_gan)])
+                if same_count == 1 and len(zei_list) >= 2:
+                    method = "比用"
             else:
-                # 孟仲季法
-                MENG = {"寅","申","巳","亥"}
-                ZHONG = {"子","午","卯","酉"}
-
-                # 检查上神所临地盘是否在孟/仲
-                def _di_category(k):
-                    return "meng" if k["di"] in MENG else ("zhong" if k["di"] in ZHONG else "ji")
-
-                meng_cand = [k for _, k in tie if _di_category(k) == "meng"]
-                zhong_cand = [k for _, k in tie if _di_category(k) == "zhong"]
-
-                if meng_cand:
-                    chuchuan = meng_cand[0]["tian"]
-                elif zhong_cand:
-                    chuchuan = zhong_cand[0]["tian"]
-                else:
-                    # 缀瑕：阳日取干上神，阴日取支上神
-                    if GAN_YINYANG[ri_gan] == "阳":
-                        chuchuan = sike[0][0]
-                    else:
-                        chuchuan = sike[2][0]
-
-        elif len(same) == 0 and len(ke_list) >= 2:
-            # 俱不比 → 也走涉害
-            method = "涉害"
-            depths = []
-            for k in ke_list:
-                d = _shehai_depth_full(k["tian"], k["di"], k["type"], tiandipan)
-                depths.append((d, k))
-            depths.sort(key=lambda x: -x[0])
-            max_d = depths[0][0]
-            tie = [item for item in depths if item[0] == max_d]
-
-            if len(tie) == 1:
-                chuchuan = tie[0][1]["tian"]
-            else:
-                MENG = {"寅","申","巳","亥"}
-                ZHONG = {"子","午","卯","酉"}
-                def _di_cat(k): return "meng" if k["di"] in MENG else ("zhong" if k["di"] in ZHONG else "ji")
-                meng_cand = [k for _, k in tie if _di_cat(k) == "meng"]
-                zhong_cand = [k for _, k in tie if _di_cat(k) == "zhong"]
-                if meng_cand: chuchuan = meng_cand[0]["tian"]
-                elif zhong_cand: chuchuan = zhong_cand[0]["tian"]
-                else: chuchuan = sike[0][0] if GAN_YINYANG[ri_gan] == "阳" else sike[2][0]
+                method = "元首" if len(ke_only_list) == 1 else "涉害"
+                same_count = len([k for k in ke_only_list if _same_yinyang(k["tian"], ri_gan)])
+                if same_count == 1 and len(ke_only_list) >= 2:
+                    method = "比用"
 
     # ============ 无克 → 遥克 ============
     if chuchuan is None and not is_fuyin and not is_fanyin:
         ri_wx = GAN_WUXING[ri_gan]
-        haoshi = []   # 上神遥克日干 (日被克)
-        tanshe = []   # 日干遥克上神 (日克他)
+        ke_map = {"木": "土", "土": "水", "水": "火", "火": "金", "金": "木"}
+
+        haoshi = []   # 上神遥克日干 → 蒿矢（日被克，主他人主动）
+        tanshe = []   # 日干遥克上神 → 弹射（日克他，主我主动）
 
         for i, (tian, di) in enumerate(sike):
             tw = ZHI_WUXING[tian]
-            ke = {"木":"土","土":"水","水":"火","火":"金","金":"木"}
-            if ke.get(tw) == ri_wx:      # 上神克日 → 蒿矢
-                haoshi.append((i, tian, di))
-            if ke.get(ri_wx) == tw:      # 日克上神 → 弹射
-                tanshe.append((i, tian, di))
+            if ke_map.get(tw) == ri_wx:
+                # 上神五行克日干五行 → 蒿矢
+                haoshi.append({"idx": i, "tian": tian, "di": di, "type": "ke"})
+            if ke_map.get(ri_wx) == tw:
+                # 日干五行克上神五行 → 弹射
+                tanshe.append({"idx": i, "tian": tian, "di": di, "type": "ke"})
 
         if haoshi:
+            # 蒿矢优先
             method = "蒿矢"
-            same = [h for h in haoshi if _same_yinyang(h[1], ri_gan)]
-            chuchuan = (same[0] if same else haoshi[0])[1]
+            selected = _select_from_candidates(haoshi, ri_gan, sike, tiandipan)
+            if selected:
+                chuchuan = selected["tian"]
         elif tanshe:
             method = "弹射"
-            same = [t for t in tanshe if _same_yinyang(t[1], ri_gan)]
-            chuchuan = (same[0] if same else tanshe[0])[1]
+            selected = _select_from_candidates(tanshe, ri_gan, sike, tiandipan)
+            if selected:
+                chuchuan = selected["tian"]
 
     # ============ 无克无遥 → 昴星 / 别责 / 八专 ============
     if chuchuan is None and not is_fuyin and not is_fanyin:
@@ -318,79 +354,107 @@ def get_sanchuan(
         n_unique = len(unique_pairs)
 
         if is_bazhuan and n_unique == 2:
-            # 八专
+            # 八专课
             method = "八专"
             if GAN_YINYANG[ri_gan] == "阳":
-                chuchuan = DIZHI[(ZHI_INDEX[sike[0][0]] + 2) % 12]  # 顺数第三位
+                # 阳日：干上神顺数第三位（从干上神地盘起，天盘顺三位）
+                gan_shang_shen = sike[0][0]
+                chuchuan = DIZHI[(ZHI_INDEX[gan_shang_shen] + 2) % 12]
             else:
-                chuchuan = DIZHI[(ZHI_INDEX[sike[3][0]] - 2) % 12]  # 逆数第三位
+                # 阴日：第四课上神逆数第三位
+                si_shang_shen = sike[3][0]
+                chuchuan = DIZHI[(ZHI_INDEX[si_shang_shen] - 2) % 12]
 
         elif n_unique == 3:
-            # 别责
+            # 别责课
             method = "别责"
             if GAN_YINYANG[ri_gan] == "阳":
-                he_map = {"甲":"己","己":"甲","乙":"庚","庚":"乙",
-                          "丙":"辛","辛":"丙","丁":"壬","壬":"丁","戊":"癸","癸":"戊"}
+                # 阳日别责：取日干合干之寄宫上神
+                he_map = {
+                    "甲": "己", "己": "甲", "乙": "庚", "庚": "乙",
+                    "丙": "辛", "辛": "丙", "丁": "壬", "壬": "丁",
+                    "戊": "癸", "癸": "戊",
+                }
                 he_gan = he_map.get(ri_gan, ri_gan)
                 he_jigong = GAN_JIGONG[he_gan]
                 chuchuan = tiandipan[he_jigong]
             else:
-                sanhe_front = {"子":"辰","丑":"巳","寅":"午","卯":"未","辰":"申",
-                               "巳":"酉","午":"戌","未":"亥","申":"子","酉":"丑",
-                               "戌":"寅","亥":"卯"}
-                chuchuan = tiandipan[sanhe_front.get(ri_zhi, ri_zhi)]
+                # 阴日别责：取日支三合局的前位之上神
+                sanhe_front = {
+                    "子": "辰", "丑": "巳", "寅": "午", "卯": "未",
+                    "辰": "申", "巳": "酉", "午": "戌", "未": "亥",
+                    "申": "子", "酉": "丑", "戌": "寅", "亥": "卯",
+                }
+                front_zhi = sanhe_front.get(ri_zhi, ri_zhi)
+                chuchuan = tiandipan[front_zhi]
 
         elif n_unique == 4:
-            # 昴星
+            # 昴星课
             method = "昴星"
             if GAN_YINYANG[ri_gan] == "阳":
-                # 虎视课：仰视地盘酉之上神
+                # 虎视课：仰视地盘酉之上神为初传
                 chuchuan = tiandipan["酉"]
             else:
-                # 冬蛇掩目课：俯视天盘酉所临地盘，取其下一位之上神
+                # 冬蛇掩目课：俯视天盘酉所临地盘之下一位（顺时针）
                 tian_you_di = _tian_lin_di(tiandipan, "酉")
                 if tian_you_di:
                     next_di = DIZHI[(ZHI_INDEX[tian_you_di] + 1) % 12]
                     chuchuan = tiandipan[next_di]
                 else:
-                    chuchuan = tiandipan["酉"]  # fallback
+                    chuchuan = tiandipan["酉"]  # 兜底
 
-    # ============ Fallback ============
+    # ============ 兜底 ============
     if chuchuan is None:
         chuchuan = sike[0][0]
         if not method:
             method = "未知"
 
-    # ============ 中传/末传（通用规则） ============
-    if zhongchuan is None:
-        zhongchuan = tiandipan[chuchuan]  # 初传地盘之上神为中传
+    # ============ 中传/末传 ============
 
-    if mochuan is None:
-        mochuan = tiandipan[zhongchuan]   # 中传地盘之上神为末传
+    # 伏吟已设中末传，跳过通用规则
+    if method == "伏吟":
+        pass  # zhongchuan, mochuan already set
 
-    # 昴星特殊中末传
-    if method == "昴星":
+    # 昴星中末传
+    elif method == "昴星":
         if GAN_YINYANG[ri_gan] == "阳":
-            zhongchuan = tiandipan[ri_zhi]     # 支上神
-            mochuan = sike[0][0]                # 干上神
+            # 阳日：中传 = 支上神, 末传 = 干上神
+            zhongchuan = tiandipan[ri_zhi]
+            mochuan = sike[0][0]
         else:
-            zhongchuan = sike[0][0]             # 干上神
-            mochuan = tiandipan[ri_zhi]         # 支上神
+            # 阴日：中传 = 干上神, 末传 = 支上神
+            zhongchuan = sike[0][0]
+            mochuan = tiandipan[ri_zhi]
 
-    # 别责/八专中末传都取干上神
-    if method in ("别责", "八专"):
+    # 别责/八专：中末传都取干上神（三传同宫）
+    elif method in ("别责", "八专"):
         zhongchuan = sike[0][0]
         mochuan = sike[0][0]
 
     # 返吟无克的中末传
-    if method == "返吟" and not ke_list:
-        zhongchuan = tiandipan[ri_zhi]
-        mochuan = sike[0][0]
+    elif method == "返吟" and not ke_list:
+        zhongchuan = tiandipan[ri_zhi]   # 支上神
+        mochuan = sike[0][0]              # 干上神
 
-    # 确定地盘
-    c_di = _tian_lin_di(tiandipan, chuchuan) or DIZHI[(ZHI_INDEX[chuchuan]+2)%12]
-    z_di = _tian_lin_di(tiandipan, zhongchuan) or DIZHI[(ZHI_INDEX[zhongchuan]+2)%12]
-    m_di = _tian_lin_di(tiandipan, mochuan) or DIZHI[(ZHI_INDEX[mochuan]+2)%12]
+    # 通用规则：中传 = 初传地盘之上神，末传 = 中传地盘之上神
+    if zhongchuan is None:
+        zhongchuan = tiandipan[chuchuan]
+
+    if mochuan is None:
+        mochuan = tiandipan[zhongchuan]
+
+    # --- 确定各传所临地盘 ---
+    def _find_di(shen: str) -> str:
+        """天盘神 → 所临地盘（遍历天地盘获取）"""
+        d = _tian_lin_di(tiandipan, shen)
+        if d:
+            return d
+        # 兜底：根据地支自身位置推算
+        return DIZHI[(ZHI_INDEX[shen] + 2) % 12]
+
+    c_di = _find_di(chuchuan)
+    z_di = _find_di(zhongchuan)
+    m_di = _find_di(mochuan)
 
     return {
         "方法": method,

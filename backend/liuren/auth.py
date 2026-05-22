@@ -189,6 +189,133 @@ def login_user(username: str, password: str) -> dict:
         conn.close()
 
 
+def qq_login(code: str, app_id: str, app_key: str, redirect_uri: str) -> dict:
+    """
+    QQ 互联 OAuth 2.0 登录。
+    需要在 https://connect.qq.com 注册应用获取 App ID 和 App Key。
+
+    流程：
+    1. 用 authorization_code 换 access_token
+    2. 用 access_token 换 openid
+    3. 用 access_token + openid 获取用户信息（昵称、头像）
+    4. 查找或创建用户，返回 JWT
+    """
+    # 1. 用 code 换 access_token
+    token_url = (
+        f"https://graph.qq.com/oauth2.0/token"
+        f"?grant_type=authorization_code"
+        f"&client_id={app_id}"
+        f"&client_secret={app_key}"
+        f"&code={code}"
+        f"&redirect_uri={redirect_uri}"
+        f"&fmt=json"
+    )
+    try:
+        req = urllib.request.Request(token_url)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            token_data = json.loads(resp.read())
+    except Exception as e:
+        return {"success": False, "message": f"QQ 接口请求失败（token）：{e}"}
+
+    if "error" in token_data:
+        return {"success": False, "message": f"QQ 登录失败：{token_data.get('error_description', token_data['error'])}"}
+
+    access_token = token_data.get("access_token", "")
+    if not access_token:
+        return {"success": False, "message": "QQ 登录失败：未获取到 access_token"}
+
+    # 2. 用 access_token 换 openid
+    openid_url = f"https://graph.qq.com/oauth2.0/me?access_token={access_token}&fmt=json"
+    try:
+        req = urllib.request.Request(openid_url)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            raw = resp.read().decode("utf-8")
+        # QQ 可能返回 callback( {...} ) 格式，去掉外层
+        if raw.startswith("callback("):
+            raw = raw[9:-3]  # strip callback( and );
+        openid_data = json.loads(raw)
+    except Exception as e:
+        return {"success": False, "message": f"QQ 接口请求失败（openid）：{e}"}
+
+    if "error" in openid_data:
+        return {"success": False, "message": f"QQ 获取 openid 失败：{openid_data['error_description']}"}
+
+    openid = openid_data.get("openid", "")
+    if not openid:
+        return {"success": False, "message": "QQ 登录失败：未获取到 openid"}
+
+    # 3. 获取用户信息
+    info_url = (
+        f"https://graph.qq.com/user/get_user_info"
+        f"?access_token={access_token}"
+        f"&oauth_consumer_key={app_id}"
+        f"&openid={openid}"
+    )
+    user_info = {}
+    try:
+        req = urllib.request.Request(info_url)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            user_info = json.loads(resp.read())
+    except Exception:
+        pass  # 用户信息获取失败不影响登录
+
+    nickname = user_info.get("nickname", "") or f"QQ用户{openid[-6:]}"
+    avatar_url = user_info.get("figureurl_qq_2", "") or user_info.get("figureurl_qq_1", "")
+
+    # 4. 查找或创建用户
+    conn = _connect()
+    try:
+        row = conn.execute(
+            "SELECT * FROM users WHERE wechat_openid=? OR username=?",
+            (openid, f"qq_{openid[:8]}")
+        ).fetchone()
+
+        if row:
+            user = dict(row)
+            conn.execute(
+                "UPDATE users SET nickname=?, avatar_url=?, wechat_openid=? WHERE id=?",
+                (nickname, avatar_url, openid, user["id"])
+            )
+            conn.commit()
+            user["nickname"] = nickname
+            user["avatar_url"] = avatar_url
+        else:
+            user_id = str(uuid.uuid4())[:8]
+            username = f"qq_{openid[:8]}"
+            now = datetime.now().strftime("%Y-%m")
+            conn.execute(
+                "INSERT INTO users (id, username, wechat_openid, nickname, avatar_url, quota_month) "
+                "VALUES (?,?,?,?,?,?)",
+                (user_id, username, openid, nickname, avatar_url, now)
+            )
+            conn.commit()
+            user = {
+                "id": user_id, "username": username,
+                "nickname": nickname, "avatar_url": avatar_url,
+                "is_admin": 0, "quota_total": 30, "quota_used": 0,
+                "quota_month": now,
+            }
+
+        token = create_token(user["id"])
+        return {
+            "success": True,
+            "message": "QQ 登录成功",
+            "user": {
+                "id": user["id"],
+                "username": user.get("username", ""),
+                "nickname": user.get("nickname", nickname),
+                "avatar_url": user.get("avatar_url", ""),
+                "is_admin": bool(user.get("is_admin", 0)),
+                "quota_total": user.get("quota_total", 30),
+                "quota_used": user.get("quota_used", 0),
+                "quota_month": user.get("quota_month", ""),
+            },
+            "token": token,
+        }
+    finally:
+        conn.close()
+
+
 def wechat_login(code: str, app_id: str, app_secret: str) -> dict:
     """
     微信 OAuth 登录。

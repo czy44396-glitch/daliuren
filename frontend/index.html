@@ -207,9 +207,6 @@
             <div class="info-node" id="info-gz-panel" title="干支日历" style="font-size:10px;">
                 <span class="info-label">历</span>日历
             </div>
-            <div class="info-node" id="info-portal-login" title="注册/登录">
-                <span class="info-label" id="portal-login-label">登</span><span id="portal-login-text">登录</span>
-            </div>
         </div>
 
         <!-- 底部撕裂入口 -->
@@ -279,10 +276,6 @@
                 <button id="btn-export-img" class="btn btn-sm" title="导出图片">导出图片</button>
                 <button id="btn-classics" class="btn btn-sm" title="六壬典籍研习">典籍</button>
                 <span class="tb-sep"></span>
-                <button id="btn-upload-case" class="btn btn-sm" title="上传案例到中央系统" style="display:none">上传</button>
-                <button id="btn-admin-panel" class="btn btn-sm" title="管理审核" style="display:none;color:#b83a2e">审核</button>
-                <button id="btn-login" class="btn btn-sm" title="注册/登录">登录</button>
-                <span id="user-nick" style="font-size:11px;color:#6b6560;display:none;align-items:center;gap:4px"></span>
             </div>
         </header>
 
@@ -657,49 +650,11 @@
         </div>
     </div>
 
-    <!-- 登录弹窗 -->
-    <div id="login-modal" class="modal" style="display:none">
-        <div class="modal-content" style="width:380px;max-width:92vw">
-            <div class="modal-header">
-                <span class="modal-title">登 录 大 六 壬</span>
-                <button id="btn-close-login" class="btn btn-sm">&times;</button>
-            </div>
-            <div style="padding:20px">
-                <!-- 邮箱登录表单 -->
-                <div id="login-form">
-                    <div class="form-row"><input type="email" id="login-email" placeholder="QQ邮箱" autocomplete="email" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
-                    <div class="form-row"><input type="password" id="login-password" placeholder="密码（6位以上）" autocomplete="current-password" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
-                    <div class="form-row" id="register-nickname-row" style="display:none"><input type="text" id="register-nickname" placeholder="昵称（选填）" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:14px;box-sizing:border-box;background:#fffef9"></div>
-                    <div style="display:flex;gap:8px;margin-top:4px">
-                        <button id="btn-email-login" style="flex:1;padding:10px;background:#3a3632;color:#f5f0e6;border:none;border-radius:6px;font-size:14px;font-family:inherit;cursor:pointer">登录</button>
-                        <button id="btn-email-register" style="flex:1;padding:10px;background:transparent;color:#3a3632;border:1px solid #b83a2e;border-radius:6px;font-size:14px;font-family:inherit;cursor:pointer">注册</button>
-                    </div>
-
-                    <!-- 验证码快捷登录（需SMTP配置） -->
-                    <div id="code-login-area" style="margin-top:12px;padding-top:10px;border-top:1px solid #e5dcc8">
-                        <div style="display:flex;gap:6px">
-                            <button id="btn-send-code" style="flex:1;padding:8px;background:none;color:#6b6560;border:1px dashed #c4b393;border-radius:6px;font-size:12px;font-family:inherit;cursor:pointer">验证码登录（免密码）</button>
-                        </div>
-                        <div style="font-size:10px;color:#9a948c;margin-top:4px" id="send-code-hint"></div>
-                        <div class="form-row" id="code-input-row" style="display:none">
-                            <input type="text" id="login-code" placeholder="输入6位验证码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" style="width:100%;padding:10px;border:1px solid #e5dcc8;border-radius:6px;font-family:inherit;font-size:18px;letter-spacing:6px;text-align:center;box-sizing:border-box;background:#fffef9">
-                        </div>
-                        <button id="btn-verify-code" style="display:none;width:100%;padding:8px;background:#b83a2e;color:#fff;border:none;border-radius:6px;font-size:13px;font-family:inherit;cursor:pointer;margin-top:4px">验证并登录</button>
-                    </div>
-
-                    <div id="login-msg" style="text-align:center;font-size:12px;margin-top:10px;display:none"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script src="/static/js/particles.js?v=5"></script>
     <script src="/static/js/params.js?v=5"></script>
     <script src="/static/js/pan-renderer.js?v=17"></script>
     <script src="/static/js/chat.js?v=6"></script>
     <script src="/static/js/classics.js?v=5"></script>
-    <script src="/static/js/user.js?v=10"></script>
-    <script src="/static/js/admin.js?v=1"></script>
     <script src="/static/js/app.js?v=16"></script>
     <script>
     // ====== PWA Service Worker 注册 + 安装提示 ======

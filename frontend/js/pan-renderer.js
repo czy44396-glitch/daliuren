@@ -166,6 +166,7 @@ function _renderSanchuanHTML(data) {
     const sl = data["三传六亲"] || {};
     const st = data["三传天将"] || {};
     const dgAll = data["遁干"] || {};
+    const xk = data["旬空"] || [];
     if (!sc) { container.innerHTML = ''; return; }
 
     const its = [
@@ -177,16 +178,20 @@ function _renderSanchuanHTML(data) {
     let h = `<div class="section-title">三 传</div>`;
     h += '<div class="sanchuan-col">';
     for (let i = 0; i < its.length; i++) {
-        const clr = DZC[its[i].z] || "#2c2416";
+        const kong = xk.includes(its[i].z);
+        const clrRaw = DZC[its[i].z] || "#2c2416";
+        const clr = kong ? '#bbb' : clrRaw;
         const tjShort = TJS[its[i].j] || its[i].j;
         const tjClr = TJC[its[i].j] || "#8b1a2b";
-        h += `<div class="sc-cell-h">
-            <span class="sc-liuqin" style="color:${clr}">${its[i].q}</span>
-            <span class="sc-zhi" style="border-color:${clr};color:${clr}">${its[i].z}</span>
+        h += `<div class="sc-cell-h${kong ? ' sc-kong' : ''}">
+            <span class="sc-liuqin" style="color:${clrRaw}">${its[i].q}</span>
+            <span class="sc-zhi-col">
+                <span class="sc-zhi" style="border-color:${clr};color:${clr}">${its[i].z}</span>`;
+        if (i < 2) h += '<span class="sc-arrow-dn">↓</span>';
+        h += `</span>
             <span class="sc-jiang" style="color:${tjClr}">${tjShort}</span>
             <span class="sc-dungan">${its[i].d}</span>
         </div>`;
-        if (i < 2) h += '<div class="sc-arrow-dn">↓</div>';
     }
     h += '</div>';
     container.innerHTML = h;

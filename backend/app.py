@@ -19,7 +19,7 @@ from liuren.skill_manager import (
     inject_skill_context, get_reflections_dir
 )
 from liuren.auth import (
-    register_user, login_user, wechat_login,
+    register_user, login_user, wechat_login, qq_login,
     register_email, login_email,
     verify_token, get_user_from_token,
     check_quota, consume_quota,
@@ -30,7 +30,7 @@ from liuren.auth import (
 from liuren.email import (
     send_verification_email, store_code, verify_code, configure_smtp
 )
-from liuren.db import init_db
+from liuren.db import init_db, _connect as db_connect
 
 app = FastAPI(title="大六壬排盘解盘系统")
 
@@ -150,6 +150,72 @@ async def api_wechat_login(request: Request):
         if result["success"]:
             return result
         return JSONResponse(result, status_code=401)
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)}, status_code=500)
+
+
+@app.get("/api/auth/email/smtp-status")
+async def api_smtp_status():
+    """SMTP 诊断：检查配置状态"""
+    import os as _os
+    from liuren.email import SMTP_USER, SMTP_PASS
+    env_user = _os.environ.get("QQMAIL_USER", "")
+    env_pass = _os.environ.get("QQMAIL_PASS", "")
+    return {
+        "success": True,
+        "configured": bool(SMTP_USER and SMTP_PASS),
+        "diagnostics": {
+            "env_QQMAIL_USER_set": bool(env_user),
+            "env_QQMAIL_PASS_set": bool(env_pass),
+            "env_user_length": len(env_user),
+            "env_pass_length": len(env_pass),
+            "module_SMTP_USER_set": bool(SMTP_USER),
+            "module_SMTP_PASS_set": bool(SMTP_PASS),
+        },
+        "message": ("SMTP 已配置 ✓" if (SMTP_USER and SMTP_PASS)
+                    else "SMTP 未配置：请在 Render Dashboard → Environment 中设置 QQMAIL_USER 和 QQMAIL_PASS，然后 Redeploy"),
+    }
+
+
+@app.post("/api/auth/email/test-smtp")
+async def api_test_smtp(request: Request):
+    """
+    测试 SMTP 连接 — 向指定邮箱发一封测试邮件。
+    用于在不配置环境变量的情况下验证 SMTP 凭证是否有效。
+    请求体：{"smtp_user": "xxx@qq.com", "smtp_pass": "授权码", "to_email": "接收测试邮件的邮箱"}
+    """
+    try:
+        data = await request.json()
+        smtp_user = (data.get("smtp_user", "")).strip()
+        smtp_pass = (data.get("smtp_pass", "")).strip()
+        to_email = (data.get("to_email", "")).strip()
+
+        if not smtp_user or not smtp_pass:
+            return JSONResponse({"success": False, "message": "请提供 smtp_user 和 smtp_pass"}, status_code=400)
+        if not to_email:
+            to_email = smtp_user
+
+        # 临时配置 SMTP
+        configure_smtp(smtp_user, smtp_pass)
+
+        # 发送测试邮件
+        from liuren.email import send_verification_email
+        # 生成一个测试验证码
+        test_code = "000000"
+        ok, msg = send_verification_email(to_email, test_code)
+
+        # 恢复原配置（从环境变量重新加载）
+        _orig_user = os.environ.get("QQMAIL_USER", "")
+        _orig_pass = os.environ.get("QQMAIL_PASS", "")
+        if _orig_user and _orig_pass:
+            configure_smtp(_orig_user, _orig_pass)
+        else:
+            configure_smtp("", "")
+
+        if ok:
+            return {"success": True, "message": f"SMTP 连接成功！测试邮件已发送至 {to_email}"}
+        else:
+            return {"success": False, "message": msg}
     except Exception as e:
         return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
@@ -275,6 +341,50 @@ async def api_wechat_config(request: Request):
         f"?appid={app_id}&redirect_uri={redirect_uri}&response_type=code&scope=snsapi_userinfo"
     )
     return {"success": True, "redirect_url": auth_url}
+
+
+@app.get("/api/auth/qq/config")
+async def api_qq_config(request: Request):
+    """返回 QQ 互联 OAuth 配置和授权 URL"""
+    app_id = os.environ.get("QQ_APP_ID", "")
+    if not app_id:
+        return {"success": False, "message": "QQ 登录未配置（需要在环境变量中设置 QQ_APP_ID 和 QQ_APP_KEY）"}
+    redirect_uri = request.query_params.get("redirect_uri", str(request.base_url).rstrip("/") + "/")
+    # QQ 互联 OAuth 2.0 授权 URL
+    state = request.query_params.get("state", "qq_login")
+    auth_url = (
+        f"https://graph.qq.com/oauth2.0/authorize"
+        f"?response_type=code"
+        f"&client_id={app_id}"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state}"
+        f"&scope=get_user_info"
+    )
+    return {"success": True, "redirect_url": auth_url, "app_id": app_id}
+
+
+@app.post("/api/auth/qq/callback")
+async def api_qq_callback(request: Request):
+    """QQ 互联 OAuth 回调：用 code 换 token → openid → 用户信息 → 登录/注册"""
+    try:
+        data = await request.json()
+        code = data.get("code", "")
+        redirect_uri = data.get("redirect_uri", str(request.base_url).rstrip("/") + "/")
+
+        app_id = os.environ.get("QQ_APP_ID", "")
+        app_key = os.environ.get("QQ_APP_KEY", "")
+
+        if not code:
+            return JSONResponse({"success": False, "message": "缺少授权码"}, status_code=400)
+        if not app_id or not app_key:
+            return JSONResponse({"success": False, "message": "QQ 登录未配置（需要 QQ_APP_ID 和 QQ_APP_KEY）"}, status_code=400)
+
+        result = qq_login(code, app_id, app_key, redirect_uri)
+        if result["success"]:
+            return result
+        return JSONResponse(result, status_code=401)
+    except Exception as e:
+        return JSONResponse({"success": False, "message": str(e)}, status_code=500)
 
 
 @app.get("/api/auth/me")

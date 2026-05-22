@@ -1296,6 +1296,13 @@
     width: 160px;
     box-sizing: border-box;
 }
+#board-app .sc-zhi-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
 #board-app .sc-zhi {
     display: inline-flex;
     align-items: center; justify-content: center;
@@ -1332,7 +1339,12 @@
     text-align: center;
     flex-shrink: 0;
 }
-#board-app .sc-arrow-dn { font-size: 0.8rem; color: var(--red); font-weight: 700; line-height: 1; }
+#board-app .sc-kong .sc-zhi {
+    border-style: dashed !important;
+    color: #bbb !important;
+    border-color: #bbb !important;
+}
+#board-app .sc-arrow-dn { font-size: 0.75rem; color: var(--red); font-weight: 700; line-height: 1; display: block; }
 
 /* --- 右侧对话 --- */
 #board-app #chat-panel {
@@ -1511,45 +1523,7 @@
 }
 #board-app #chat-input { flex: 1; }
 
-/* --- 全局弹窗（登录/注册弹窗在 board-app 外也可用） --- */
-.modal {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.4);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-}
-.modal .modal-content {
-    background: #fffef9;
-    border-radius: 10px;
-    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
-    max-height: 85vh;
-    overflow-y: auto;
-}
-.modal .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 18px;
-    border-bottom: 1px solid #e5dcc8;
-}
-.modal .modal-title {
-    font-family: 'Noto Serif SC', 'SimSun', serif;
-    font-size: 1rem;
-    color: #2c2416;
-    letter-spacing: 2px;
-}
-.modal .form-row {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: 12px;
-}
-
-/* --- 排盘页弹窗（保持原有样式） --- */
+/* --- 排盘页弹窗 --- */
 #board-app .modal {
     position: fixed;
     top: 0; left: 0;

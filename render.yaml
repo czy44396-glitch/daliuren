@@ -9,4 +9,19 @@ services:
     envVars:
       - key: PYTHONPATH
         value: backend
+      - key: ANTHROPIC_BASE_URL
+        sync: false
+      - key: ANTHROPIC_MODEL
+        value: deepseek-v4-pro
+        sync: false
+      - key: ANTHROPIC_AUTH_TOKEN
+        sync: false
+      - key: QQ_APP_ID
+        sync: false
+      - key: QQ_APP_KEY
+        sync: false
+      - key: QQMAIL_USER
+        sync: false
+      - key: QQMAIL_PASS
+        sync: false
     autoDeploy: true
