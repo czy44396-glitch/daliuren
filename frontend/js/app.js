@@ -227,6 +227,8 @@ function enterBoard() {
     document.getElementById('board-app').style.display = '';
     document.body.style.background = '#f7f3eb';
 
+    updateShiftTimeLabel();
+
     // 清除案例追踪
     currentLoadedCaseId = null;
     updateMyNotesBtn(null);
@@ -279,6 +281,7 @@ async function doPaipan() {
         container.innerHTML = '<svg id="board-svg" viewBox="0 0 660 600"></svg>';
         renderBoard(currentPanData);
         Params.setInfo(currentPanData);
+        updateShiftTimeLabel();
         resetAnalysisFields(); showViewButtons();
         showCorrectSCBtn();
         if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'set_pan',data:currentPanData}));
@@ -287,7 +290,71 @@ async function doPaipan() {
 
 async function doUpdatePan() { await doPaipan(); }
 
-// ====== 案例管理 ======
+// ====== 换时滚轮 ======
+const _SHICHEN = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+
+function _hourToShichen(h) {
+    const idx = Math.floor(((h % 24) + 24) % 24 / 2);
+    return _SHICHEN[idx] || "";
+}
+
+function updateShiftTimeLabel() {
+    const el = document.getElementById('shift-time-label');
+    if (!el) return;
+    const h = parseInt(document.getElementById('board-param-hour')?.value) || 0;
+    const sc = _hourToShichen(h);
+    el.textContent = `${sc}时`;
+}
+
+async function shiftTime(dir) {
+    const hourEl = document.getElementById('board-param-hour');
+    const dayEl = document.getElementById('board-param-day');
+    const monthEl = document.getElementById('board-param-month');
+    const yearEl = document.getElementById('board-param-year');
+    if (!hourEl || !dayEl) return;
+
+    let hour = parseInt(hourEl.value) || 0;
+    let day = parseInt(dayEl.value) || 1;
+    let month = parseInt(monthEl.value) || 1;
+    let year = parseInt(yearEl.value) || 2026;
+
+    const oldHour = hour;
+
+    if (dir === 'prev') {
+        hour = (hour - 2 + 24) % 24;
+        if (oldHour < 2) {
+            day--;
+            if (day < 1) {
+                month--;
+                if (month < 1) { month = 12; year--; }
+                const maxD = new Date(year, month, 0).getDate();
+                day = maxD;
+            }
+        }
+    } else {
+        hour = (hour + 2) % 24;
+        if (oldHour >= 22) {
+            day++;
+            const maxD = new Date(year, month, 0).getDate();
+            if (day > maxD) { day = 1; month++; }
+            if (month > 12) { month = 1; year++; }
+        }
+    }
+
+    hourEl.value = hour;
+    dayEl.value = day;
+    monthEl.value = month;
+    yearEl.value = year;
+
+    // 同步入口页
+    document.getElementById('param-hour').value = hour;
+    document.getElementById('param-day').value = day;
+    document.getElementById('param-month').value = month;
+    document.getElementById('param-year').value = year;
+
+    updateShiftTimeLabel();
+    await doUpdatePan();
+}
 let _saveTags = [];    // 当前正在编辑的标签列表
 let _allTags = [];     // 所有已有标签（含使用次数）
 
@@ -1726,6 +1793,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // ====== 面板页事件 ======
+    // 换时滚轮
+    $on('btn-shift-prev', 'click', () => shiftTime('prev'));
+    $on('btn-shift-next', 'click', () => shiftTime('next'));
+
     // 工具栏事件委托在 #toolbar 上（而非 toolbar-actions），覆盖 brand 区域和 actions 区域所有按钮
     $on('toolbar', 'click', _toolbarClick);
 

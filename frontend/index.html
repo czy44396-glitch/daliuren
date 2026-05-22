@@ -301,6 +301,11 @@
             <!-- 盘面视图 -->
             <main id="board-view">
                 <div id="board-info">
+                    <div id="shift-time-bar" style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                        <button id="btn-shift-prev" class="btn btn-sm" title="上一时辰">◂</button>
+                        <span id="shift-time-label" style="font-size:13px;font-weight:600;color:#1a1614;font-family:var(--font-serif);min-width:60px;text-align:center;cursor:default">--</span>
+                        <button id="btn-shift-next" class="btn btn-sm" title="下一时辰">▸</button>
+                    </div>
                     <div class="info-tag" id="sizhu-display"><span class="label">四柱</span><span class="value gold">--</span></div>
                     <div class="info-tag" id="sanchuan-display"><span class="label">三传</span><span class="value red">--</span></div>
                     <div class="info-tag" id="method-display"><span class="label">课式</span><span class="value red">--</span></div>
@@ -695,7 +700,7 @@
     <script src="/static/js/classics.js?v=5"></script>
     <script src="/static/js/user.js?v=10"></script>
     <script src="/static/js/admin.js?v=1"></script>
-    <script src="/static/js/app.js?v=14"></script>
+    <script src="/static/js/app.js?v=15"></script>
     <script>
     // ====== PWA Service Worker 注册 + 安装提示 ======
     let _installPrompt = null;
