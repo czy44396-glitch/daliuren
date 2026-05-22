@@ -1169,140 +1169,173 @@ ${['年','月','日','时'].map(k => '<div class="gz-item"><span class="g">'+(sz
 function exportAsImage() {
     const svgEl = document.getElementById('board-svg');
     if (!svgEl) { alert('请先排盘'); return; }
+
     const data = currentPanData;
-    const sz = data?.['时间']?.['四柱'] || {};
-    const sc = data?.['三传'] || {};
-    const sike = data?.['四课详情'] || [];
-    const tjAll = data?.['十二天将'] || {};
-    const dgAll = data?.['遁干'] || {};
-    const W = 1320, H = 1550;
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#f7f3eb';
-    ctx.fillRect(0, 0, W, H);
+    if (!data) { alert('盘面数据缺失，请重新排盘'); return; }
 
-    const titleY = 40;
-    ctx.fillStyle = '#8b1a2b';
-    ctx.font = 'bold 28px "Noto Serif SC","SimSun",serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('大六壬课例', W/2, titleY);
-    ctx.fillStyle = '#9c8b72';
-    ctx.font = '16px "Noto Sans SC","Microsoft YaHei",sans-serif';
-    const pm = data?.['排盘参数'] || {};
-    const jq = data?.['节气'] || {};
-    const sj = data?.['时间'] || {};
-    ctx.fillText(`${pm['月将']||''}将 · ${jq['当前节气']||''}→${jq['下一节气']||''} · ${sj['昼夜']||''}`, W/2, titleY + 24);
+    try {
+        const sz = data['时间']?.['四柱'] || {};
+        const sc = data['三传'] || {};
+        const sike = data['四课详情'] || [];
+        const tjAll = data['十二天将'] || {};
+        const dgAll = data['遁干'] || {};
+        const pm = data['排盘参数'] || {};
+        const jq = data['节气'] || {};
+        const sj = data['时间'] || {};
+        const xk = data['旬空'] || [];
 
-    const pillarY = 90;
-    ctx.font = 'bold 18px "Noto Serif SC",serif';
-    const pillars = ['年柱','月柱','日柱','时柱'];
-    pillars.forEach((k, i) => {
-        const gz = sz[k] || '--';
-        const x = W/2 - 120 + i * 80;
-        ctx.fillStyle = '#b8860b';
-        ctx.fillText(gz[0]||'', x, pillarY);
+        const W = 1320, H = 1550;
+        const canvas = document.createElement('canvas');
+        canvas.width = W; canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#f7f3eb';
+        ctx.fillRect(0, 0, W, H);
+
+        // 标题
+        const titleY = 40;
         ctx.fillStyle = '#8b1a2b';
-        ctx.fillText(gz[1]||'', x, pillarY + 22);
+        ctx.font = 'bold 28px "Noto Serif SC","SimSun",serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('大六壬课例', W/2, titleY);
         ctx.fillStyle = '#9c8b72';
-        ctx.font = '11px "Noto Sans SC",sans-serif';
-        ctx.fillText(k[0], x, pillarY + 36);
-        ctx.font = 'bold 18px "Noto Serif SC",serif';
-    });
+        ctx.font = '16px "Noto Sans SC","Microsoft YaHei",sans-serif';
+        ctx.fillText(`${pm['月将']||''}将 · ${jq['当前节气']||''}→${jq['下一节气']||''} · ${sj['昼夜']||''}`, W/2, titleY + 24);
 
-    const svgData = new XMLSerializer().serializeToString(svgEl);
-    const svgImg = new Image();
-    const svgBlob = new Blob([svgData], {type:'image/svg+xml;charset=utf-8'});
-    const svgUrl = URL.createObjectURL(svgBlob);
-    svgImg.onload = () => {
-        URL.revokeObjectURL(svgUrl);
-        const boardW = 1160, boardH = 1050, boardX = 80, boardY = 140;
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(boardX-2, boardY-2, boardW+4, boardH+4);
-        ctx.strokeStyle = '#e0d5c1';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(boardX-2, boardY-2, boardW+4, boardH+4);
-        ctx.drawImage(svgImg, boardX, boardY, boardW, boardH);
-
-        const sikeY = boardY + boardH + 30;
-        const cellW = 230, cellH = 140, gap = 16;
-        const sikeTotalW = 4*cellW + 3*gap;
-        const sikeX = 40;
-
-        sike.forEach((sk, i) => {
-            const x = sikeX + i*(cellW+gap);
-            const y = sikeY;
-            ctx.fillStyle = '#fefcf7';
-            ctx.fillRect(x, y, cellW, cellH);
-            ctx.strokeStyle = '#e0d5c1';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x, y, cellW, cellH);
-            const cx = x + cellW/2;
-            const dg = dgAll[sk['上神']] || '';
-            ctx.fillStyle = '#9c8b72';
-            ctx.font = '14px "Noto Serif SC",serif';
-            ctx.textAlign = 'center';
-            ctx.fillText(dg, cx, y + 22);
-            const tj = TJS[tjAll[sk['地盘地支']||sk['地盘']]] || '';
+        // 四柱
+        const pillarY = 90;
+        const pillars = ['年柱','月柱','日柱','时柱'];
+        pillars.forEach((k, i) => {
+            const gz = sz[k] || '--';
+            const x = W/2 - 120 + i * 80;
+            ctx.font = 'bold 18px "Noto Serif SC",serif';
+            ctx.fillStyle = '#b8860b';
+            ctx.fillText(gz[0]||'', x, pillarY);
             ctx.fillStyle = '#8b1a2b';
-            ctx.font = 'bold 15px "Noto Sans SC",sans-serif';
-            ctx.fillText(tj, cx, y + 42);
-            const clrSn = (typeof DZC !== 'undefined' ? DZC[sk['上神']] : null) || '#2c2416';
-            ctx.fillStyle = clrSn;
-            ctx.font = 'bold 34px "Noto Serif SC",serif';
-            ctx.fillText(sk['上神'], cx, y + 85);
-            const dp = sk['地盘'];
-            const clrDp = (typeof DZC !== 'undefined' ? DZC[dp] : null) || '#2c2416';
-            ctx.fillStyle = clrDp;
-            ctx.fillText(dp, cx, y + 122);
+            ctx.fillText(gz[1]||'', x, pillarY + 22);
+            ctx.fillStyle = '#9c8b72';
+            ctx.font = '11px "Noto Sans SC",sans-serif';
+            ctx.fillText(k[0], x, pillarY + 36);
         });
 
-        const scX = sikeX + sikeTotalW + 50;
-        const scStartY = sikeY + 10;
-        ctx.fillStyle = '#8b1a2b';
-        ctx.font = 'bold 17px "Noto Serif SC",serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`三传·${sc['方法']||''}`, scX + 60, scStartY);
+        // 将 SVG 转为图片绘制到 canvas
+        const svgData = new XMLSerializer().serializeToString(svgEl);
+        const svgImg = new Image();
+        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        const svgUrl = URL.createObjectURL(svgBlob);
 
-        const items = [{l:'初传',z:sc['初传']},{l:'中传',z:sc['中传']},{l:'末传',z:sc['末传']}];
-        items.forEach((it, i) => {
-            const cy = scStartY + 25 + i * 80;
-            const clr = (typeof DZC !== 'undefined' ? DZC[it.z] : null) || '#2c2416';
-            ctx.fillStyle = '#fff';
-            ctx.beginPath();
-            ctx.arc(scX+60, cy+16, 22, 0, Math.PI*2);
-            ctx.fill();
-            ctx.strokeStyle = clr;
-            ctx.lineWidth = 2;
-            ctx.stroke();
-            ctx.fillStyle = clr;
-            ctx.font = 'bold 26px "Noto Serif SC",serif';
-            ctx.fillText(it.z, scX+60, cy+26);
-            ctx.fillStyle = '#6b5e4a';
-            ctx.font = '12px "Noto Sans SC",sans-serif';
-            ctx.fillText(it.l, scX+60, cy+48);
-            if (i < 2) {
+        function doExport() {
+            URL.revokeObjectURL(svgUrl);
+            try {
+                const boardW = 1160, boardH = 1050, boardX = 80, boardY = 140;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(boardX-2, boardY-2, boardW+4, boardH+4);
+                ctx.strokeStyle = '#e0d5c1';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(boardX-2, boardY-2, boardW+4, boardH+4);
+                ctx.drawImage(svgImg, boardX, boardY, boardW, boardH);
+
+                // 四课
+                const sikeY = boardY + boardH + 30;
+                const cellW = 230, cellH = 140, gap = 16;
+                const sikeTotalW = 4*cellW + 3*gap;
+                const sikeX = 40;
+
+                sike.forEach((sk, i) => {
+                    const x = sikeX + i*(cellW+gap);
+                    const y = sikeY;
+                    ctx.fillStyle = '#fefcf7';
+                    ctx.fillRect(x, y, cellW, cellH);
+                    ctx.strokeStyle = '#e0d5c1';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellW, cellH);
+                    const cx = x + cellW/2;
+                    const dg = dgAll[sk['上神']] || '';
+                    ctx.fillStyle = '#9c8b72';
+                    ctx.font = '14px "Noto Serif SC",serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(dg, cx, y + 22);
+                    const tj = (typeof TJS !== 'undefined' ? TJS[tjAll[sk['地盘地支']||sk['地盘']]] : '') || '';
+                    ctx.fillStyle = '#8b1a2b';
+                    ctx.font = 'bold 15px "Noto Sans SC",sans-serif';
+                    ctx.fillText(tj, cx, y + 42);
+                    const clrSn = (typeof DZC !== 'undefined' ? DZC[sk['上神']] : null) || '#2c2416';
+                    ctx.fillStyle = clrSn;
+                    ctx.font = 'bold 34px "Noto Serif SC",serif';
+                    ctx.fillText(sk['上神']||'', cx, y + 85);
+                    const dp = sk['地盘'] || '';
+                    const clrDp = (typeof DZC !== 'undefined' ? DZC[dp] : null) || '#2c2416';
+                    ctx.fillStyle = clrDp;
+                    ctx.font = 'bold 16px "Noto Serif SC",serif';
+                    ctx.fillText(dp, cx, y + 122);
+                });
+
+                // 三传
+                const scX = sikeX + sikeTotalW + 50;
+                const scStartY = sikeY + 10;
                 ctx.fillStyle = '#8b1a2b';
-                ctx.font = 'bold 18px sans-serif';
-                ctx.fillText('↓', scX+60, cy+68);
+                ctx.font = 'bold 17px "Noto Serif SC",serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('三传·' + (sc['方法']||''), scX + 60, scStartY);
+
+                const items = [{l:'初传',z:sc['初传']},{l:'中传',z:sc['中传']},{l:'末传',z:sc['末传']}];
+                items.forEach((it, i) => {
+                    const cy = scStartY + 25 + i * 80;
+                    const clr = (typeof DZC !== 'undefined' ? DZC[it.z] : null) || '#2c2416';
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.arc(scX+60, cy+16, 22, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.strokeStyle = clr;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.fillStyle = clr;
+                    ctx.font = 'bold 26px "Noto Serif SC",serif';
+                    ctx.fillText(it.z||'', scX+60, cy+26);
+                    ctx.fillStyle = '#6b5e4a';
+                    ctx.font = '12px "Noto Sans SC",sans-serif';
+                    ctx.fillText(it.l, scX+60, cy+48);
+                    if (i < 2) {
+                        ctx.fillStyle = '#8b1a2b';
+                        ctx.font = 'bold 18px sans-serif';
+                        ctx.fillText('↓', scX+60, cy+68);
+                    }
+                });
+
+                // 底部信息
+                const footerY = sikeY + cellH + 60;
+                ctx.fillStyle = '#9c8b72';
+                ctx.font = '14px "Noto Sans SC",sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
+
+                // 导出 blob
+                canvas.toBlob(function(blob) {
+                    if (!blob) { alert('导出失败：无法生成图片'); return; }
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
+                }, 'image/png');
+            } catch (e) {
+                console.error('[export] 绘制失败:', e);
+                alert('导出失败：' + e.message);
             }
-        });
+        }
 
-        const xk = data?.['旬空'] || [];
-        const footerY = sikeY + cellH + 60;
-        ctx.fillStyle = '#9c8b72';
-        ctx.font = '14px "Noto Sans SC",sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`旬空：${xk.join('、')} | 行年：${data['行年']||'--'}(${(data['行年详情']||{})['年龄']||''}岁) | ${sj['公历']||''}`, W/2, footerY);
-
-        canvas.toBlob(blob => {
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `大六壬_${sz['年柱']||''}${sz['月柱']||''}${sz['日柱']||''}.png`;
-            a.click();
-        }, 'image/png');
-    };
-    svgImg.src = svgUrl;
+        svgImg.onload = doExport;
+        svgImg.onerror = function() {
+            URL.revokeObjectURL(svgUrl);
+            alert('导出失败：SVG 渲染出错，请刷新页面后重试');
+        };
+        svgImg.src = svgUrl;
+    } catch (e) {
+        console.error('[export] 导出异常:', e);
+        alert('导出失败：' + e.message);
+    }
 }
 
 // ====== 初始化 ======
