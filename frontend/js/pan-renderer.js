@@ -97,9 +97,9 @@ function _renderTiandiPanSVG(data) {
         h += `<text x="${cx+cw/2}" y="${cy+ch/2+16}" font-size="28" font-weight="700"
             fill="${tianK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="middle">${tian}</text>`;
 
-        // 地盘地支 — 右下角（空亡加虚线框）
+        // 地盘地支 — 右下角（空亡加虚线框，紧贴字符）
         if (diK) {
-            h += `<rect x="${cx+cw-28}" y="${cy+ch-22}" width="22" height="18" rx="3" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+            h += `<rect x="${cx+cw-29}" y="${cy+ch-21}" width="16" height="16" rx="2" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
         }
         h += `<text x="${cx+cw-14}" y="${cy+ch-8}" font-size="14" font-weight="600"
             fill="${diK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="end">${di}</text>`;
