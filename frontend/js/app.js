@@ -292,9 +292,12 @@ async function doUpdatePan() { await doPaipan(); }
 
 // ====== 换时滚轮 ======
 const _SHICHEN = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"];
+// 时辰 → 起始小时映射（子=0, 丑=2, ..., 亥=22）
+const _SHI_HOUR = { "子":0,"丑":2,"寅":4,"卯":6,"辰":8,"巳":10,"午":12,"未":14,"申":16,"酉":18,"戌":20,"亥":22 };
 
 function _hourToShichen(h) {
-    const idx = Math.floor(((h % 24) + 24) % 24 / 2);
+    // 将任意小时归到时辰：子(23,0,1) 丑(1,2,3) 寅(3,4,5) ...
+    const idx = Math.floor(((h + 1) % 24) / 2);
     return _SHICHEN[idx] || "";
 }
 
@@ -318,27 +321,29 @@ async function shiftTime(dir) {
     let month = parseInt(monthEl.value) || 1;
     let year = parseInt(yearEl.value) || 2026;
 
-    const oldHour = hour;
+    // 归一到时辰起始（偶数小时）
+    const oldShiIdx = Math.floor(((hour + 1) % 24) / 2);
 
     if (dir === 'prev') {
-        hour = (hour - 2 + 24) % 24;
-        if (oldHour < 2) {
+        // 上一时辰 → 子(0) 退回 亥(22)，日减一
+        if (oldShiIdx === 0) {
             day--;
             if (day < 1) {
                 month--;
                 if (month < 1) { month = 12; year--; }
-                const maxD = new Date(year, month, 0).getDate();
-                day = maxD;
+                day = new Date(year, month, 0).getDate();
             }
         }
+        hour = _SHI_HOUR[_SHICHEN[(oldShiIdx - 1 + 12) % 12]];
     } else {
-        hour = (hour + 2) % 24;
-        if (oldHour >= 22) {
+        // 下一时辰 → 亥(22) 进到 子(0)，日加一
+        if (oldShiIdx === 11) {
             day++;
             const maxD = new Date(year, month, 0).getDate();
             if (day > maxD) { day = 1; month++; }
             if (month > 12) { month = 1; year++; }
         }
+        hour = _SHI_HOUR[_SHICHEN[(oldShiIdx + 1) % 12]];
     }
 
     hourEl.value = hour;
