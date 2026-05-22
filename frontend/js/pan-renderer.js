@@ -69,7 +69,7 @@ function _renderTiandiPanSVG(data) {
         const [r, c] = POS[di];
         const tian = td[di] || "";
         const jiang = tj[di] || "";
-        const dun = dg[di] || "";
+        const dun = dg[tian] || "";  // 遁干随天盘
         const clr = DZC[di] || "#2c2416";
         const tianK = xk.includes(tian); // 天盘地支是否空亡
         const diK = xk.includes(di);     // 地盘地支是否空亡
