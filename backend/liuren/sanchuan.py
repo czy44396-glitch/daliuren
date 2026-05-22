@@ -389,18 +389,16 @@ def get_sanchuan(
                 chuchuan = tiandipan[front_zhi]
 
         elif n_unique == 4:
-            # 昴星课
+            # 昴星课（《六壬大全》：刚日仰视地盘酉上神，柔日伏视天盘酉下神）
             method = "昴星"
             if GAN_YINYANG[ri_gan] == "阳":
                 # 虎视课：仰视地盘酉之上神为初传
                 chuchuan = tiandipan["酉"]
             else:
-                # 冬蛇掩目课：俯视天盘酉所临地盘之下一位（顺时针）
-                tian_you_di = _tian_lin_di(tiandipan, "酉")
-                if tian_you_di:
-                    next_di = DIZHI[(ZHI_INDEX[tian_you_di] + 1) % 12]
-                    chuchuan = tiandipan[next_di]
-                else:
+                # 冬蛇掩目课：伏视天盘酉所临地盘之支为初传
+                # 《六壬大全》原文："柔日伏视天盘，酉下神为用"
+                chuchuan = _tian_lin_di(tiandipan, "酉")
+                if not chuchuan:
                     chuchuan = tiandipan["酉"]  # 兜底
 
     # ============ 兜底 ============
