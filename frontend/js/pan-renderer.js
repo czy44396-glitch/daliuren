@@ -123,6 +123,7 @@ function _renderSikeHTML(data) {
     const slq = data["四课六亲"];
     const tjAll = data["十二天将"] || {};
     const dgAll = data["遁干"] || {};
+    const xk = data["旬空"] || [];
     if (!sike || !slq) { container.innerHTML = ''; return; }
 
     // 为四课上神找对应天将：上神坐在地盘X, 查X的天将
@@ -135,12 +136,13 @@ function _renderSikeHTML(data) {
         const sn = sike[i]["上神"];
         const dp = sike[i]["地盘"];
         const lq = slq[i] ? slq[i]["六亲"] : "";
-        const clrSn = DZC[sn] || "#2c2416";
+        const snKong = xk.includes(sn);  // 上神空亡
+        const clrSn = snKong ? '#bbb' : (DZC[sn] || "#2c2416");
         const clrDp = DZC[dp] || "#2c2416";
         const tj = tjForSike[i];
         const dg = dgForSike[i];
 
-        h += `<div class="sike-cell">
+        h += `<div class="sike-cell${snKong ? ' sike-kong' : ''}">
             <div class="sike-dungan">${dg}</div>
             <div class="sike-jiang">${tj}</div>
             <div class="sike-shang" style="color:${clrSn}">${sn}</div>
