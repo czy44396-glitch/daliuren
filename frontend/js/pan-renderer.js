@@ -70,15 +70,16 @@ function _renderTiandiPanSVG(data) {
         const tian = td[di] || "";
         const jiang = tj[di] || "";
         const dun = dg[tian] || "";  // 遁干随天盘
-        const clr = DZC[di] || "#2c2416";
+        const clrDi = DZC[di] || "#2c2416";      // 地盘颜色（宫格边框、地盘字）
+        const clrTian = DZC[tian] || "#2c2416";  // 天盘颜色（天盘字、空亡圈）
         const tianK = xk.includes(tian); // 天盘地支是否空亡
         const diK = xk.includes(di);     // 地盘地支是否空亡
         const cx = ox + c * (cw + gap);
         const cy = oy + r * (ch + gap);
 
-        // 宫格外框
+        // 宫格外框（地盘色）
         h += `<rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="5"
-            fill="#fefcf7" stroke="${clr}" stroke-width="2"/>`;
+            fill="#fefcf7" stroke="${clrDi}" stroke-width="2"/>`;
 
         // 遁干 — 最顶部
         const tjS = TJS[jiang] || "";
@@ -86,23 +87,23 @@ function _renderTiandiPanSVG(data) {
         h += `<text x="${cx+cw/2}" y="${cy+ch/2-38}" font-size="11" fill="#6b5e4a"
             font-family="var(--font-serif)" text-anchor="middle">${dun}</text>`;
 
-        // 天将简称 — 圆圈上方（不与空亡圆圈重叠）
+        // 天将简称
         h += `<text x="${cx+cw/2}" y="${cy+ch/2-20}" font-size="18" fill="${tjClr}"
             font-family="var(--font-sans)" font-weight="600" text-anchor="middle">${tjS}</text>`;
 
-        // 天盘地支 — 大字居中（空亡加虚线圆圈）
+        // 天盘地支 — 大字居中（空亡加虚线圆圈，天盘色）
         if (tianK) {
-            h += `<circle cx="${cx+cw/2}" cy="${cy+ch/2+7}" r="22" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+            h += `<circle cx="${cx+cw/2}" cy="${cy+ch/2+7}" r="22" fill="none" stroke="${clrTian}" stroke-width="1.5" stroke-dasharray="4 3"/>`;
         }
         h += `<text x="${cx+cw/2}" y="${cy+ch/2+16}" font-size="28" font-weight="700"
-            fill="${tianK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="middle">${tian}</text>`;
+            fill="${tianK ? '#bbb' : clrTian}" font-family="var(--font-serif)" text-anchor="middle">${tian}</text>`;
 
-        // 地盘地支 — 右下角
+        // 地盘地支 — 右下角（地盘色）
         if (diK) {
-            h += `<rect x="${cx+cw-29}" y="${cy+ch-23}" width="16" height="16" rx="2" fill="none" stroke="${clr}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+            h += `<rect x="${cx+cw-29}" y="${cy+ch-23}" width="16" height="16" rx="2" fill="none" stroke="${clrDi}" stroke-width="1.5" stroke-dasharray="3 3"/>`;
         }
         h += `<text x="${cx+cw-14}" y="${cy+ch-10}" font-size="14" font-weight="600"
-            fill="${diK ? '#bbb' : clr}" font-family="var(--font-serif)" text-anchor="end">${di}</text>`;
+            fill="${diK ? '#bbb' : clrDi}" font-family="var(--font-serif)" text-anchor="end">${di}</text>`;
     }
 
     // 方位标注 — 午(0,1)北, 子(3,2)南
