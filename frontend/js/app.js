@@ -1333,11 +1333,15 @@ function exportAsImage() {
         const xk = data['旬空'] || [];
         const td = data['天地盘'] || {};
 
-        // 满幅纵向：天地盘(超大) → 四课(反序) → 三传(纵排+六亲神将遁干)
-        var W = 1200, H = 1220;
+        // 满幅纵向 2x 视网膜高清
+        var W = 1200, H = 1220, DPR = 2;
         var canvas = document.createElement('canvas');
-        canvas.width = W; canvas.height = H;
+        canvas.width = W * DPR; canvas.height = H * DPR;
         var ctx = canvas.getContext('2d');
+        ctx.scale(DPR, DPR);
+        // 启用高质量文本渲染
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.fillStyle = '#f7f3eb';
         ctx.fillRect(0, 0, W, H);
 
@@ -1575,50 +1579,16 @@ function exportAsImage() {
             ctx.fillText(sit.l, sanCX, scy + scR + 16);
         }
 
-        // ===== 导出分发：统一策略，移动端缩图防内存溢出 =====
+        // ===== 导出分发：全分辨率PNG，桌面下载，移动端弹窗预览 =====
         var filename = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
         var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-        var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        // 移动端：缩小 canvas 避免 dataURL 过大导致内存溢出
-        var exportCanvas = canvas;
-        if (isMobile) {
-            try {
-                var scale = 0.55;
-                var smallCvs = document.createElement('canvas');
-                smallCvs.width = Math.floor(W * scale);
-                smallCvs.height = Math.floor(H * scale);
-                var sctx = smallCvs.getContext('2d');
-                sctx.drawImage(canvas, 0, 0, smallCvs.width, smallCvs.height);
-                exportCanvas = smallCvs;
-            } catch(e) { exportCanvas = canvas; }
-        }
-
-        // 生成图片 URL（JPEG 更小，移动端友好）
-        var dataUrl;
-        try {
-            dataUrl = isMobile
-                ? exportCanvas.toDataURL('image/jpeg', 0.85)
-                : exportCanvas.toDataURL('image/png');
-        } catch(e) {
-            // toDataURL 失败通常是因为 canvas 太大
-            try {
-                var tiny = document.createElement('canvas');
-                tiny.width = 600; tiny.height = 610;
-                var tctx = tiny.getContext('2d');
-                tctx.drawImage(canvas, 0, 0, 600, 610);
-                dataUrl = tiny.toDataURL('image/jpeg', 0.7);
-            } catch(e2) {
-                alert('导出失败：图片过大，请尝试截图保存');
-                return;
-            }
-        }
+        // 全分辨率 PNG（无损高清）
+        var dataUrl = canvas.toDataURL('image/png');
 
         if (isMobile) {
-            // 移动端统一：弹窗预览 + 长按保存
             _showImageModal(dataUrl, filename);
         } else {
-            // 桌面端：直接下载
             _triggerDownload(dataUrl, filename);
         }
 
