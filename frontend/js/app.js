@@ -1575,42 +1575,51 @@ function exportAsImage() {
             ctx.fillText(sit.l, sanCX, scy + scR + 16);
         }
 
-        // ===== 导出分发：按平台 + PWA状态选择最佳策略 =====
+        // ===== 导出分发：统一策略，移动端缩图防内存溢出 =====
         var filename = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
-        var isAndroid = /Android/i.test(navigator.userAgent);
+        var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
         var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-        var isPWA = window.matchMedia('(display-mode: standalone)').matches;
 
-        if (isPWA) {
-            // PWA 独立模式（主屏图标入口）：弹窗预览最可靠
-            // Android PWA 中 a.click() 下载不触发；iOS PWA 不支持 download
-            var dataUrl = canvas.toDataURL('image/png');
-            _showImageModal(dataUrl, filename);
-        } else if (isAndroid) {
-            // Android 浏览器：直接下载
-            if (typeof canvas.toBlob === 'function') {
-                canvas.toBlob(function(blob) {
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url; a.download = filename;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(function() {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }, 500);
-                }, 'image/png');
-            } else {
-                _triggerDownload(canvas.toDataURL('image/png'), filename);
+        // 移动端：缩小 canvas 避免 dataURL 过大导致内存溢出
+        var exportCanvas = canvas;
+        if (isMobile) {
+            try {
+                var scale = 0.55;
+                var sc = document.createElement('canvas');
+                sc.width = Math.floor(W * scale);
+                sc.height = Math.floor(H * scale);
+                var sctx = sc.getContext('2d');
+                sctx.drawImage(canvas, 0, 0, sc.width, sc.height);
+                exportCanvas = sc;
+            } catch(e) { exportCanvas = canvas; }
+        }
+
+        // 生成图片 URL（JPEG 更小，移动端友好）
+        var dataUrl;
+        try {
+            dataUrl = isMobile
+                ? exportCanvas.toDataURL('image/jpeg', 0.85)
+                : exportCanvas.toDataURL('image/png');
+        } catch(e) {
+            // toDataURL 失败通常是因为 canvas 太大
+            try {
+                var tiny = document.createElement('canvas');
+                tiny.width = 600; tiny.height = 610;
+                var tctx = tiny.getContext('2d');
+                tctx.drawImage(canvas, 0, 0, 600, 610);
+                dataUrl = tiny.toDataURL('image/jpeg', 0.7);
+            } catch(e2) {
+                alert('导出失败：图片过大，请尝试截图保存');
+                return;
             }
-        } else if (isIOS) {
-            // iOS Safari：弹窗预览 + 长按保存
-            var dataUrl2 = canvas.toDataURL('image/png');
-            _showImageModal(dataUrl2, filename);
+        }
+
+        if (isMobile) {
+            // 移动端统一：弹窗预览 + 长按保存
+            _showImageModal(dataUrl, filename);
         } else {
             // 桌面端：直接下载
-            _triggerDownload(canvas.toDataURL('image/png'), filename);
+            _triggerDownload(dataUrl, filename);
         }
 
         // ---- 辅助函数 ----
@@ -1624,51 +1633,62 @@ function exportAsImage() {
         }
 
         function _showImageModal(dataUrl, fname) {
-            // 移除旧弹窗
             var old = document.querySelector('.export-img-modal');
             if (old) old.remove();
 
-            var modal = document.createElement('div');
-            modal.className = 'export-img-modal';
-            modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.95);z-index:9999;padding:16px;overflow:auto;display:flex;flex-direction:column;align-items:center';
+            // 显示加载中
+            var loading = document.createElement('div');
+            loading.id = 'export-loading';
+            loading.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.9);z-index:9998;display:flex;align-items:center;justify-content:center;color:#c4b393;font-size:16px;font-family:"Noto Serif SC",serif';
+            loading.textContent = '正在生成图片...';
+            document.body.appendChild(loading);
 
-            // 标题栏
-            var bar = document.createElement('div');
-            bar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px;padding:8px 0;flex-shrink:0';
-            var title = document.createElement('span');
-            title.textContent = fname;
-            title.style.cssText = 'color:#9a948c;font-size:13px;font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1';
-            var closeBtn = document.createElement('button');
-            closeBtn.textContent = '✕';
-            closeBtn.style.cssText = 'width:36px;height:36px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#c4b393;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;margin-left:12px;line-height:1';
-            closeBtn.onclick = function() { modal.remove(); };
-            bar.appendChild(title);
-            bar.appendChild(closeBtn);
-
-            // 图片容器（独立点击区，不关闭弹窗）
-            var imgWrap = document.createElement('div');
-            imgWrap.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;width:100%;max-width:600px;min-height:0';
-            var img = document.createElement('img');
-            img.src = dataUrl;
-            img.style.cssText = 'max-width:100%;max-height:70vh;border-radius:6px;border:2px solid rgba(255,255,255,0.1);object-fit:contain';
-            // 阻止事件冒泡，防止点击图片关闭弹窗
-            img.onclick = function(e) { e.stopPropagation(); };
-            imgWrap.appendChild(img);
-
-            // 底部提示
-            var tip = document.createElement('p');
-            tip.textContent = '长按上方图片 → 保存到相册';
-            tip.style.cssText = 'color:#c4b393;margin:16px 0 8px;font-size:15px;font-family:"Noto Serif SC",serif;text-align:center;flex-shrink:0';
-
-            // 点击背景关闭
-            modal.onclick = function(e) {
-                if (e.target === modal) modal.remove();
+            // 预加载图片
+            var img = new Image();
+            img.onload = function() {
+                loading.remove();
+                _showModal(img);
             };
+            img.onerror = function() {
+                loading.remove();
+                alert('导出失败：图片生成出错，请重试');
+            };
+            // 延迟设置 src，让 loading 先渲染
+            setTimeout(function() { img.src = dataUrl; }, 100);
 
-            modal.appendChild(bar);
-            modal.appendChild(imgWrap);
-            modal.appendChild(tip);
-            document.body.appendChild(modal);
+            function _showModal(imgEl) {
+                var modal = document.createElement('div');
+                modal.className = 'export-img-modal';
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.96);z-index:9999;padding:12px;overflow:auto;display:flex;flex-direction:column;align-items:center;-webkit-overflow-scrolling:touch';
+
+                var bar = document.createElement('div');
+                bar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px;padding:8px 0;flex-shrink:0';
+                var title = document.createElement('span');
+                title.textContent = fname;
+                title.style.cssText = 'color:#9a948c;font-size:13px;font-family:inherit';
+                var closeBtn = document.createElement('button');
+                closeBtn.textContent = '✕';
+                closeBtn.style.cssText = 'width:40px;height:40px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#c4b393;border-radius:50%;font-size:20px;cursor:pointer;flex-shrink:0;margin-left:12px';
+                closeBtn.onclick = function() { modal.remove(); };
+                bar.appendChild(title);
+                bar.appendChild(closeBtn);
+
+                var imgWrap = document.createElement('div');
+                imgWrap.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;width:100%;max-width:600px;min-height:0';
+                imgEl.style.cssText = 'max-width:100%;max-height:75vh;border-radius:8px;border:2px solid rgba(255,255,255,0.12);object-fit:contain';
+                imgEl.onclick = function(e) { e.stopPropagation(); };
+                imgWrap.appendChild(imgEl);
+
+                var tip = document.createElement('p');
+                tip.textContent = '长按图片 → 保存到相册';
+                tip.style.cssText = 'color:#c4b393;margin:14px 0 6px;font-size:15px;font-family:"Noto Serif SC",serif;text-align:center;flex-shrink:0';
+
+                modal.onclick = function(e) { if (e.target === modal) modal.remove(); };
+                modal.appendChild(bar);
+                modal.appendChild(imgWrap);
+                modal.appendChild(tip);
+                document.body.appendChild(modal);
+            }
         }
     } catch(e) {
         console.error('[export] error:', e);
