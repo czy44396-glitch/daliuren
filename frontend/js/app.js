@@ -1585,12 +1585,12 @@ function exportAsImage() {
         if (isMobile) {
             try {
                 var scale = 0.55;
-                var sc = document.createElement('canvas');
-                sc.width = Math.floor(W * scale);
-                sc.height = Math.floor(H * scale);
-                var sctx = sc.getContext('2d');
-                sctx.drawImage(canvas, 0, 0, sc.width, sc.height);
-                exportCanvas = sc;
+                var smallCvs = document.createElement('canvas');
+                smallCvs.width = Math.floor(W * scale);
+                smallCvs.height = Math.floor(H * scale);
+                var sctx = smallCvs.getContext('2d');
+                sctx.drawImage(canvas, 0, 0, smallCvs.width, smallCvs.height);
+                exportCanvas = smallCvs;
             } catch(e) { exportCanvas = canvas; }
         }
 
