@@ -1396,13 +1396,19 @@ function exportAsImage() {
         ctx.textAlign = 'center';
         ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
 
-        // ===== 导出分发：按平台选择最佳策略 =====
+        // ===== 导出分发：按平台 + PWA状态选择最佳策略 =====
         var filename = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
         var isAndroid = /Android/i.test(navigator.userAgent);
         var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+        var isPWA = window.matchMedia('(display-mode: standalone)').matches;
 
-        if (isAndroid) {
-            // Android Chrome 支持 toBlob + download → 直接下载
+        if (isPWA) {
+            // PWA 独立模式（主屏图标入口）：弹窗预览最可靠
+            // Android PWA 中 a.click() 下载不触发；iOS PWA 不支持 download
+            var dataUrl = canvas.toDataURL('image/png');
+            _showImageModal(dataUrl, filename);
+        } else if (isAndroid) {
+            // Android 浏览器：直接下载
             if (typeof canvas.toBlob === 'function') {
                 canvas.toBlob(function(blob) {
                     var url = URL.createObjectURL(blob);
@@ -1417,13 +1423,12 @@ function exportAsImage() {
                     }, 500);
                 }, 'image/png');
             } else {
-                // 降级：dataURL 下载
                 _triggerDownload(canvas.toDataURL('image/png'), filename);
             }
         } else if (isIOS) {
-            // iOS Safari：不支持 download 属性 → 弹窗预览 + 长按保存
-            var dataUrl = canvas.toDataURL('image/png');
-            _showImageModal(dataUrl, filename);
+            // iOS Safari：弹窗预览 + 长按保存
+            var dataUrl2 = canvas.toDataURL('image/png');
+            _showImageModal(dataUrl2, filename);
         } else {
             // 桌面端：直接下载
             _triggerDownload(canvas.toDataURL('image/png'), filename);

@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <link rel="stylesheet" href="/static/css/style.css?v=29">
+    <link rel="stylesheet" href="/static/css/style.css?v=30">
 </head>
 <body>
 
@@ -655,16 +655,58 @@
     <script src="/static/js/pan-renderer.js?v=17"></script>
     <script src="/static/js/chat.js?v=6"></script>
     <script src="/static/js/classics.js?v=5"></script>
-    <script src="/static/js/app.js?v=21"></script>
+    <script src="/static/js/app.js?v=22"></script>
     <script>
-    // ====== PWA Service Worker 注册 + 安装提示 ======
+    // ====== PWA Service Worker 注册 + 安装提示 + 自动更新 ======
     let _installPrompt = null;
+    let _swRegistration = null;
 
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('/service-worker.js').then(function(reg) {
+        navigator.serviceWorker.register('/service-worker.js?v=4').then(function(reg) {
+            _swRegistration = reg;
             console.log('[PWA] SW registered:', reg.scope);
+
+            // 检测是否有新版本 SW 等待激活
+            if (reg.waiting) {
+                _notifySWUpdate();
+            }
+            reg.addEventListener('updatefound', function() {
+                var newWorker = reg.installing;
+                if (!newWorker) return;
+                newWorker.addEventListener('statechange', function() {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // 新 SW 已安装但等待激活 → 提示用户刷新
+                        _notifySWUpdate();
+                    }
+                });
+            });
         }).catch(function(err) {
             console.error('[PWA] SW registration failed:', err);
+        });
+
+        // 定期检查更新（每小时）
+        setInterval(function() {
+            if (_swRegistration) {
+                _swRegistration.update().catch(function() {});
+            }
+        }, 3600000);
+    }
+
+    function _notifySWUpdate() {
+        // 在页面底部显示更新提示
+        var banner = document.getElementById('sw-update-banner');
+        if (banner) return; // 已显示
+        banner = document.createElement('div');
+        banner.id = 'sw-update-banner';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:rgba(26,22,20,0.94);color:#f5f0e6;padding:14px 20px;z-index:9998;display:flex;align-items:center;justify-content:center;gap:16px;font-family:inherit;font-size:14px;letter-spacing:1px';
+        banner.innerHTML = '<span>有新版本可用</span><button id="sw-reload-btn" style="padding:8px 20px;background:#b83a2e;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-family:inherit">立即更新</button>';
+        document.body.appendChild(banner);
+        document.getElementById('sw-reload-btn').addEventListener('click', function() {
+            if (_swRegistration && _swRegistration.waiting) {
+                _swRegistration.waiting.postMessage('skip-waiting');
+            }
+            // 刷新页面以激活新 SW
+            window.location.reload();
         });
     }
 
