@@ -872,6 +872,16 @@ function openNotesEditor(caseId, caseData) {
         previewEl.innerHTML = '<div class="notes-pan-placeholder">无盘面数据</div>';
     }
 
+    // 自动保存：停止输入2秒后自动保存
+    var autoSaveTimer = null;
+    editor.addEventListener('input', function() {
+        if (!_notesCaseId) return;
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function() {
+            savePersonalNotes(true);
+        }, 2000);
+    });
+
     document.getElementById('notes-modal').style.display = 'flex';
 
     if (caseData.personal_notes && caseData.personal_notes.trim()) {
@@ -880,7 +890,7 @@ function openNotesEditor(caseId, caseData) {
     setTimeout(function() { editor.focus(); }, 200);
 }
 
-// 辅助：渲染天地盘到指定 SVG 元素
+// 辅助：渲染天地盘到指定 SVG 元素（含四柱居中显示）
 function _renderTiandiPanSVG_to(data, svgId) {
     var svg = document.getElementById(svgId);
     if (!svg || !data) return;
@@ -889,6 +899,7 @@ function _renderTiandiPanSVG_to(data, svgId) {
     var tj = data['十二天将'] || {};
     var dg = data['遁干'] || {};
     var xk = data['旬空'] || [];
+    var sizhu = (data['时间'] || {})['四柱'] || {};
     var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
     var DZC_map = {'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
     var TJS_map = {'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
@@ -936,6 +947,20 @@ function _renderTiandiPanSVG_to(data, svgId) {
     h += '<text x="'+(ox+1*(cw+gap)+cw/2)+'" y="'+(oy-10)+'" font-size="12" fill="#c4b393" font-family="serif" text-anchor="middle">南 (午)</text>';
     h += '<text x="'+(ox+2*(cw+gap)+cw/2)+'" y="'+(oy+3*(ch+gap)+ch+14)+'" font-size="12" fill="#c4b393" font-family="serif" text-anchor="middle">北 (子)</text>';
 
+    // 四柱居中显示在天地盘中央空白区
+    var cxB = ox + 1.5*(cw+gap) + cw/2;  // 盘中心 X
+    var cyB = oy + 1.5*(ch+gap) + ch/2;  // 盘中心 Y
+    var pillars = ['年柱','月柱','日柱','时柱'];
+    var szTexts = [];
+    for (var pi = 0; pi < pillars.length; pi++) {
+        var gz = sizhu[pillars[pi]] || '--';
+        szTexts.push(gz);
+    }
+    // 四柱纵向居中排列
+    h += '<text x="'+cxB+'" y="'+(cyB-15)+'" font-size="13" fill="#8b1a2b" font-family="serif" font-weight="600" text-anchor="middle">'+szTexts[0]+' '+szTexts[1]+'</text>';
+    h += '<text x="'+cxB+'" y="'+(cyB+8)+'" font-size="13" fill="#8b1a2b" font-family="serif" font-weight="600" text-anchor="middle">'+szTexts[2]+' '+szTexts[3]+'</text>';
+    h += '<text x="'+cxB+'" y="'+(cyB+24)+'" font-size="9" fill="#9c8b72" font-family="sans-serif" text-anchor="middle">四柱</text>';
+
     svg.innerHTML = h;
 }
 
@@ -944,23 +969,30 @@ function hideNotesModal() {
     _notesCaseId = null;
 }
 
-async function savePersonalNotes() {
+async function savePersonalNotes(silent) {
     if (!_notesCaseId) return;
-    const notes = document.getElementById('notes-editor').value;
-    const statusEl = document.getElementById('notes-status');
-    statusEl.textContent = '保存中...';
-    statusEl.className = '';
+    var notes = document.getElementById('notes-editor').value;
+    var statusEl = document.getElementById('notes-status');
+    if (!silent) {
+        statusEl.textContent = '保存中...';
+        statusEl.className = '';
+    }
     try {
-        const resp = await fetch(`/api/cases/${_notesCaseId}/personal-notes`, {
+        var resp = await fetch('/api/cases/' + _notesCaseId + '/personal-notes', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes }),
+            body: JSON.stringify({ notes: notes }),
         });
-        const r = await resp.json();
+        var r = await resp.json();
         if (r.success) {
-            statusEl.textContent = '已保存 ✓';
-            statusEl.className = 'saved';
-            setTimeout(() => { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
+            if (silent) {
+                statusEl.textContent = '已自动保存 ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+                statusEl.className = 'saved';
+            } else {
+                statusEl.textContent = '已保存 ✓';
+                statusEl.className = 'saved';
+                setTimeout(function() { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
+            }
         } else {
             statusEl.textContent = '保存失败: ' + (r.error || '');
         }
