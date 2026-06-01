@@ -2262,9 +2262,12 @@
     #board-app .sike-cell { min-width: 60px; padding: 8px 4px; }
     #board-app .sike-shang, #board-app .sike-di { font-size: 1.1rem; }
 
-    /* 弹窗全宽 */
-    #board-app .modal-content { width: 95vw; max-height: 85vh; }
-    #board-app #notes-modal .notes-modal-content { width: 95vw; }
+    /* 弹窗全宽（覆盖各弹窗的固定宽度） */
+    #board-app .modal-content,
+    #board-app #save-modal .modal-content,
+    #board-app #history-modal .modal-content,
+    #board-app #cases-modal .modal-content,
+    #board-app #notes-modal .notes-modal-content { width: 95vw; max-height: 85vh; }
 
     /* 典籍抽屉全宽 */
     #classics-drawer { width: 100vw; max-width: 100vw; }

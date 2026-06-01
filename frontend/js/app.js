@@ -367,8 +367,15 @@ async function loadAllTags() {
 function showSaveModal() {
     if (!currentPanData) { alert('请先排盘'); return; }
     document.getElementById('save-modal').style.display = 'flex';
-    document.getElementById('save-name-input').value = '';
-    document.getElementById('save-name-input').focus();
+
+    // 自动生成建议名称（四柱 + 课式）
+    var sz = (currentPanData['时间']||{})['四柱'] || {};
+    var sc = currentPanData['三传'] || {};
+    var autoName = sz['年柱']+'年'+sz['月柱']+'月'+sz['日柱']+'日 '+sc['方法']+'课';
+    var nameInput = document.getElementById('save-name-input');
+    nameInput.value = autoName;
+    nameInput.select();
+
     _saveTags = [];
     renderSaveTags();
     renderTagSuggestions();

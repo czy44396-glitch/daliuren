@@ -767,16 +767,22 @@ def _format_sizhu(result: dict) -> str:
     return f"{sz.get('年柱','')} {sz.get('月柱','')} {sz.get('日柱','')} {sz.get('时柱','')}"
 
 
+def _shichen_idx(hour: int) -> int:
+    """将小时归入时辰索引：子=0,丑=1,...,亥=11"""
+    return ((hour + 1) % 24) // 2
+
+
 def _history_exists(year, month, day, hour, minute) -> bool:
-    """检查是否已有相同时空参数的历史记录"""
+    """按时辰去重：同一时辰内只保留最早一条起课记录"""
+    sc_idx = _shichen_idx(hour)
     for fp in history_dir.glob("*.json"):
         try:
             with open(fp, "r", encoding="utf-8") as f:
                 h = json.load(f)
             p = h.get("params", {})
             if (p.get("year") == year and p.get("month") == month and
-                p.get("day") == day and p.get("hour") == hour and
-                p.get("minute") == minute):
+                p.get("day") == day and
+                _shichen_idx(p.get("hour", 0)) == sc_idx):
                 return True
         except Exception:
             pass
