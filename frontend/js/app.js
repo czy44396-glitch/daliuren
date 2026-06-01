@@ -1167,9 +1167,6 @@ ${['年','月','日','时'].map(k => '<div class="gz-item"><span class="g">'+(sz
 }
 
 function exportAsImage() {
-    const svgEl = document.getElementById('board-svg');
-    if (!svgEl) { alert('请先排盘'); return; }
-
     const data = currentPanData;
     if (!data) { alert('盘面数据缺失，请重新排盘'); return; }
 
@@ -1183,6 +1180,7 @@ function exportAsImage() {
         const jq = data['节气'] || {};
         const sj = data['时间'] || {};
         const xk = data['旬空'] || [];
+        const td = data['天地盘'] || {};
 
         const W = 1320, H = 1550;
         const canvas = document.createElement('canvas');
@@ -1192,207 +1190,252 @@ function exportAsImage() {
         ctx.fillRect(0, 0, W, H);
 
         // 标题
-        const titleY = 40;
+        const titleY = 52;
         ctx.fillStyle = '#8b1a2b';
         ctx.font = 'bold 28px "Noto Serif SC","SimSun",serif';
         ctx.textAlign = 'center';
         ctx.fillText('大六壬课例', W/2, titleY);
         ctx.fillStyle = '#9c8b72';
         ctx.font = '16px "Noto Sans SC","Microsoft YaHei",sans-serif';
-        ctx.fillText(`${pm['月将']||''}将 · ${jq['当前节气']||''}→${jq['下一节气']||''} · ${sj['昼夜']||''}`, W/2, titleY + 24);
+        ctx.fillText(pm['月将']+'将 · '+jq['当前节气']+'→'+jq['下一节气']+' · '+sj['昼夜'], W/2, titleY + 26);
 
         // 四柱
-        const pillarY = 90;
+        const pillarY = 100;
         const pillars = ['年柱','月柱','日柱','时柱'];
-        pillars.forEach((k, i) => {
-            const gz = sz[k] || '--';
-            const x = W/2 - 120 + i * 80;
+        pillars.forEach(function(k, i) {
+            var gz = sz[k] || '--';
+            var x = W/2 - 120 + i * 80;
             ctx.font = 'bold 18px "Noto Serif SC",serif';
             ctx.fillStyle = '#b8860b';
             ctx.fillText(gz[0]||'', x, pillarY);
             ctx.fillStyle = '#8b1a2b';
-            ctx.fillText(gz[1]||'', x, pillarY + 22);
+            ctx.fillText(gz[1]||'', x, pillarY + 24);
             ctx.fillStyle = '#9c8b72';
             ctx.font = '11px "Noto Sans SC",sans-serif';
-            ctx.fillText(k[0], x, pillarY + 36);
+            ctx.fillText(k[0], x, pillarY + 40);
         });
 
-        // 将 SVG 转为图片绘制到 canvas
-        const svgData = new XMLSerializer().serializeToString(svgEl);
-        const svgImg = new Image();
-        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-        const svgUrl = URL.createObjectURL(svgBlob);
+        // ===== 天地盘十二宫（Canvas 直绘，无 SVG 依赖） =====
+        var DZ_list = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+        var DZC_map = {'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
+        var TJS_map = {'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
+        var TJC_map = {'贵人':'#7D5A3C','天空':'#7D5A3C','勾陈':'#7D5A3C','太常':'#7D5A3C','青龙':'#2d7d46','六合':'#2d7d46','白虎':'#D4A017','太阴':'#D4A017','天后':'#1a3a5c','玄武':'#1a3a5c','螣蛇':'#c94043','朱雀':'#c94043'};
+        var POS_map = {'巳':[0,0],'午':[0,1],'未':[0,2],'申':[0,3],'辰':[1,0],'酉':[1,3],'卯':[2,0],'戌':[2,3],'寅':[3,0],'丑':[3,1],'子':[3,2],'亥':[3,3]};
 
-        function doExport() {
-            URL.revokeObjectURL(svgUrl);
-            try {
-                const boardW = 1160, boardH = 1050, boardX = 80, boardY = 140;
-                ctx.fillStyle = '#fff';
-                ctx.fillRect(boardX-2, boardY-2, boardW+4, boardH+4);
-                ctx.strokeStyle = '#e0d5c1';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(boardX-2, boardY-2, boardW+4, boardH+4);
-                ctx.drawImage(svgImg, boardX, boardY, boardW, boardH);
+        var boardX = 80, boardY = 155, cw = 140, ch = 128, cgap = 12;
 
-                // 四课
-                const sikeY = boardY + boardH + 30;
-                const cellW = 230, cellH = 140, gap = 16;
-                const sikeTotalW = 4*cellW + 3*gap;
-                const sikeX = 40;
+        // 先画白底 + 边框
+        var boardW = 4*(cw+cgap) - cgap;
+        var boardH = 4*(ch+cgap) - cgap;
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(boardX-4, boardY-4, boardW+8, boardH+8);
+        ctx.strokeStyle = '#e0d5c1';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(boardX-4, boardY-4, boardW+8, boardH+8);
 
-                sike.forEach((sk, i) => {
-                    const x = sikeX + i*(cellW+gap);
-                    const y = sikeY;
-                    ctx.fillStyle = '#fefcf7';
-                    ctx.fillRect(x, y, cellW, cellH);
-                    ctx.strokeStyle = '#e0d5c1';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, cellW, cellH);
-                    const cx = x + cellW/2;
-                    const dg = dgAll[sk['上神']] || '';
-                    ctx.fillStyle = '#9c8b72';
-                    ctx.font = '14px "Noto Serif SC",serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(dg, cx, y + 22);
-                    const tj = (typeof TJS !== 'undefined' ? TJS[tjAll[sk['地盘地支']||sk['地盘']]] : '') || '';
-                    ctx.fillStyle = '#8b1a2b';
-                    ctx.font = 'bold 15px "Noto Sans SC",sans-serif';
-                    ctx.fillText(tj, cx, y + 42);
-                    const clrSn = (typeof DZC !== 'undefined' ? DZC[sk['上神']] : null) || '#2c2416';
-                    ctx.fillStyle = clrSn;
-                    ctx.font = 'bold 34px "Noto Serif SC",serif';
-                    ctx.fillText(sk['上神']||'', cx, y + 85);
-                    const dp = sk['地盘'] || '';
-                    const clrDp = (typeof DZC !== 'undefined' ? DZC[dp] : null) || '#2c2416';
-                    ctx.fillStyle = clrDp;
-                    ctx.font = 'bold 16px "Noto Serif SC",serif';
-                    ctx.fillText(dp, cx, y + 122);
-                });
+        for (var di_idx = 0; di_idx < DZ_list.length; di_idx++) {
+            var di = DZ_list[di_idx];
+            var pos = POS_map[di];
+            var cx = boardX + pos[1]*(cw+cgap);
+            var cy = boardY + pos[0]*(ch+cgap);
+            var tian = td[di] || '';
+            var jiang = tjAll[di] || '';
+            var dun = dgAll[tian] || '';
+            var clrDi = DZC_map[di] || '#2c2416';
+            var clrTian = DZC_map[tian] || '#2c2416';
+            var tianK = xk.indexOf(tian) >= 0;
+            var diK = xk.indexOf(di) >= 0;
 
-                // 三传
-                const scX = sikeX + sikeTotalW + 50;
-                const scStartY = sikeY + 10;
+            // 宫格
+            ctx.fillStyle = '#fefcf7';
+            ctx.fillRect(cx, cy, cw, ch);
+            ctx.strokeStyle = clrDi;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(cx, cy, cw, ch, 5);
+            ctx.stroke();
+
+            // 遁干
+            ctx.fillStyle = '#6b5e4a';
+            ctx.font = '11px "Noto Serif SC",serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(dun, cx+cw/2, cy+ch/2-38);
+
+            // 天将
+            var tjS = TJS_map[jiang] || '';
+            var tjClr = TJC_map[jiang] || '#8b1a2b';
+            ctx.fillStyle = tjClr;
+            ctx.font = 'bold 18px "Noto Sans SC","Microsoft YaHei",sans-serif';
+            ctx.fillText(tjS, cx+cw/2, cy+ch/2-18);
+
+            // 天盘地支（大字居中，空亡加虚线圆）
+            if (tianK) {
+                ctx.beginPath();
+                ctx.arc(cx+cw/2, cy+ch/2+10, 22, 0, Math.PI*2);
+                ctx.strokeStyle = clrTian;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.fillStyle = tianK ? '#bbb' : clrTian;
+            ctx.font = 'bold 28px "Noto Serif SC",serif';
+            ctx.fillText(tian, cx+cw/2, cy+ch/2+19);
+
+            // 地盘地支（右下角）
+            if (diK) {
+                ctx.beginPath();
+                ctx.roundRect(cx+cw-29, cy+ch-23, 16, 16, 2);
+                ctx.strokeStyle = clrDi;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            ctx.fillStyle = diK ? '#bbb' : clrDi;
+            ctx.font = 'bold 14px "Noto Serif SC",serif';
+            ctx.textAlign = 'end';
+            ctx.fillText(di, cx+cw-14, cy+ch-10);
+            ctx.textAlign = 'center';
+        }
+
+        // ===== 四课 =====
+        var sikeY = boardY + boardH + 35;
+        var cellW = 230, cellH = 140, cellGap = 16;
+        var sikeTotalW = 4*cellW + 3*cellGap;
+        var sikeX = 40;
+
+        for (var si = 0; si < sike.length; si++) {
+            var sk = sike[si];
+            var sn = sk['上神'];
+            var dp = sk['地盘'];
+            var snKong = xk.indexOf(sn) >= 0;
+            var clrSn = snKong ? '#bbb' : (DZC_map[sn] || '#2c2416');
+            var clrDp = DZC_map[dp] || '#2c2416';
+            var dg = dgAll[sn] || '';
+            var tjFull = tjAll[sk['地盘地支']||sk['地盘']] || '';
+            var tj = TJS_map[tjFull] || '';
+
+            var sx = sikeX + si*(cellW+cellGap);
+            var sy = sikeY;
+            var scx = sx + cellW/2;
+
+            ctx.fillStyle = '#fefcf7';
+            ctx.fillRect(sx, sy, cellW, cellH);
+            ctx.strokeStyle = '#e0d5c1';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(sx, sy, cellW, cellH);
+
+            ctx.fillStyle = '#9c8b72';
+            ctx.font = '14px "Noto Serif SC",serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(dg, scx, sy + 24);
+
+            ctx.fillStyle = '#8b1a2b';
+            ctx.font = 'bold 15px "Noto Sans SC","Microsoft YaHei",sans-serif';
+            ctx.fillText(tj, scx, sy + 44);
+
+            ctx.fillStyle = clrSn;
+            ctx.font = 'bold 34px "Noto Serif SC",serif';
+            ctx.fillText(sn, scx, sy + 87);
+
+            ctx.fillStyle = clrDp;
+            ctx.font = 'bold 16px "Noto Serif SC",serif';
+            ctx.fillText(dp, scx, sy + 125);
+        }
+
+        // ===== 三传 =====
+        var scX = sikeX + sikeTotalW + 55;
+        var scStartY = sikeY + 15;
+        ctx.fillStyle = '#8b1a2b';
+        ctx.font = 'bold 17px "Noto Serif SC",serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('三传·'+sc['方法'], scX + 60, scStartY);
+
+        var items = [{z:sc['初传']},{z:sc['中传']},{z:sc['末传']}];
+        for (var ii = 0; ii < items.length; ii++) {
+            var icy = scStartY + 28 + ii * 80;
+            var clr = DZC_map[items[ii].z] || '#2c2416';
+            var izKong = xk.indexOf(items[ii].z) >= 0;
+            if (izKong) clr = '#bbb';
+
+            ctx.fillStyle = '#fff';
+            ctx.beginPath();
+            ctx.arc(scX+60, icy+16, 22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = clr;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = clr;
+            ctx.font = 'bold 26px "Noto Serif SC",serif';
+            ctx.fillText(items[ii].z, scX+60, icy+26);
+
+            ctx.fillStyle = '#6b5e4a';
+            ctx.font = '12px "Noto Sans SC","Microsoft YaHei",sans-serif';
+            ctx.fillText(['初传','中传','末传'][ii], scX+60, icy+50);
+
+            if (ii < 2) {
                 ctx.fillStyle = '#8b1a2b';
-                ctx.font = 'bold 17px "Noto Serif SC",serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('三传·' + (sc['方法']||''), scX + 60, scStartY);
-
-                const items = [{l:'初传',z:sc['初传']},{l:'中传',z:sc['中传']},{l:'末传',z:sc['末传']}];
-                items.forEach((it, i) => {
-                    const cy = scStartY + 25 + i * 80;
-                    const clr = (typeof DZC !== 'undefined' ? DZC[it.z] : null) || '#2c2416';
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath();
-                    ctx.arc(scX+60, cy+16, 22, 0, Math.PI*2);
-                    ctx.fill();
-                    ctx.strokeStyle = clr;
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.fillStyle = clr;
-                    ctx.font = 'bold 26px "Noto Serif SC",serif';
-                    ctx.fillText(it.z||'', scX+60, cy+26);
-                    ctx.fillStyle = '#6b5e4a';
-                    ctx.font = '12px "Noto Sans SC",sans-serif';
-                    ctx.fillText(it.l, scX+60, cy+48);
-                    if (i < 2) {
-                        ctx.fillStyle = '#8b1a2b';
-                        ctx.font = 'bold 18px sans-serif';
-                        ctx.fillText('↓', scX+60, cy+68);
-                    }
-                });
-
-                // 底部信息
-                const footerY = sikeY + cellH + 60;
-                ctx.fillStyle = '#9c8b72';
-                ctx.font = '14px "Noto Sans SC",sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
-
-                // 导出 blob（兼容移动端：toBlob → toDataURL 降级）
-                if (typeof canvas.toBlob === 'function') {
-                    canvas.toBlob(function(blob) {
-                        if (!blob) { alert('导出失败：无法生成图片'); return; }
-                        downloadBlob(blob, '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png');
-                    }, 'image/png');
-                } else {
-                    // iOS Safari / 旧浏览器降级：使用 toDataURL
-                    try {
-                        const dataUrl = canvas.toDataURL('image/png');
-                        downloadOrOpen(dataUrl, '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png');
-                    } catch (e2) {
-                        alert('导出失败：您的浏览器不支持此功能，请使用 Chrome 或桌面浏览器');
-                    }
-                }
-            } catch (e) {
-                console.error('[export] 绘制失败:', e);
-                alert('导出失败：' + e.message);
+                ctx.font = 'bold 18px sans-serif';
+                ctx.fillText('↓', scX+60, icy+68);
             }
         }
 
-        svgImg.onload = doExport;
-        svgImg.onerror = function() {
-            URL.revokeObjectURL(svgUrl);
-            alert('导出失败：SVG 渲染出错，请刷新页面后重试');
-        };
-        svgImg.src = svgUrl;
-    } catch (e) {
-        console.error('[export] 导出异常:', e);
-        alert('导出失败：' + e.message);
-    }
-}
+        // ===== 底部信息 =====
+        var footerY = sikeY + cellH + 55;
+        ctx.fillStyle = '#9c8b72';
+        ctx.font = '14px "Noto Sans SC","Microsoft YaHei",sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
 
-// ====== 移动端兼容下载辅助 ======
+        // ===== 导出：toDataURL（全平台兼容，含 iOS Safari） =====
+        var dataUrl = canvas.toDataURL('image/png');
+        var filename = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
 
-/** 下载 Blob（桌面端标准方式） */
-function downloadBlob(blob, filename) {
-    const url = URL.createObjectURL(blob);
-    downloadOrOpen(url, filename);
-}
+        // 移动端 vs 桌面端处理
+        var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-/** 下载或在新标签打开图片（兼容移动端 Safari） */
-function downloadOrOpen(url, filename) {
-    // 检查是否为移动端（iOS Safari / Android WebView）
-    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-
-    if (isMobile) {
-        // 移动端：优先尝试下载，如果 download 属性不支持则打开新标签
-        // iOS Safari 不支持 download 属性，需要打开新标签让用户长按保存
-        const clicked = (function() {
-            try {
-                a.click();
-                return true;
-            } catch(e) {
-                return false;
+        if (isMobile) {
+            // 移动端：打开新窗口显示图片，用户长按保存
+            var w = window.open('', '_blank');
+            if (w) {
+                w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+filename+'</title><style>body{margin:0;padding:8px;background:#1a1614;text-align:center;font-family:sans-serif}img{max-width:100%;height:auto;border-radius:4px}p{color:#9a948c;font-size:13px;margin:12px 0}</style></head><body><p>'+filename+'</p><img src="'+dataUrl+'" alt="课盘"><p>长按图片即可保存到相册</p></body></html>');
+                w.document.close();
+            } else {
+                // Popup blocked: show inline modal
+                var modal = document.createElement('div');
+                modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;overflow:auto';
+                modal.onclick = function() { modal.remove(); };
+                var img = document.createElement('img');
+                img.src = dataUrl;
+                img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:6px;border:2px solid rgba(255,255,255,0.1)';
+                var tip = document.createElement('p');
+                tip.textContent = '长按图片 → 保存到相册';
+                tip.style.cssText = 'color:#c4b393;margin-top:16px;font-size:15px;font-family:"Noto Serif SC",serif';
+                var close = document.createElement('button');
+                close.textContent = '关闭';
+                close.style.cssText = 'margin-top:12px;padding:8px 32px;background:rgba(255,255,255,0.08);color:#f5f0e6;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:14px;cursor:pointer;font-family:inherit';
+                close.onclick = function(e) { e.stopPropagation(); modal.remove(); };
+                modal.appendChild(img);
+                modal.appendChild(tip);
+                modal.appendChild(close);
+                document.body.appendChild(modal);
             }
-        })();
-        // 短暂延迟后如果未触发下载，打开新标签
-        setTimeout(function() {
-            document.body.removeChild(a);
-            // iOS Safari 打开新标签显示图片，用户可长按保存
-            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
-                const w = window.open(url, '_blank');
-                if (!w) {
-                    // 弹窗被拦截时，在当前页面显示提示
-                    const msg = document.createElement('div');
-                    msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(26,22,20,0.92);color:#f5f0e6;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;font-family:inherit;text-align:center;max-width:90vw';
-                    msg.textContent = '请长按上方链接保存图片，或使用 Chrome 浏览器导出';
-                    document.body.appendChild(msg);
-                    setTimeout(function() { msg.remove(); }, 4000);
-                }
-            }
-        }, 100);
-    } else {
-        // 桌面端：直接下载
-        a.click();
-        setTimeout(function() {
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }, 200);
+        } else {
+            // 桌面端：下载
+            var a = document.createElement('a');
+            a.href = dataUrl;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() { document.body.removeChild(a); }, 200);
+        }
+    } catch(e) {
+        console.error('[export] error:', e);
+        alert('导出失败：'+e.message+'\n请尝试使用截图工具保存。');
     }
 }
 
