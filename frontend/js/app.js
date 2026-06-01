@@ -1729,7 +1729,7 @@ function attachRuneEdit() {
 
             function adjustRuneValue(delta) {
                 const hiddenInp = document.getElementById('param-' + param);
-                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1900 : param === 'hour' ? 0 : 1);
+                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1 : param === 'hour' ? 0 : 1);
                 const mx = parseInt(hiddenInp?.max) || (param === 'year' ? 2100 : param === 'hour' ? 23 : 12);
                 let v = parseInt(input.value) || 0;
                 v = Math.max(mn, Math.min(mx, v + delta));
@@ -1740,7 +1740,7 @@ function attachRuneEdit() {
             function finishEdit() {
                 const hiddenInp = document.getElementById('param-' + param);
                 let v = parseInt(input.value);
-                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1900 : param === 'hour' ? 0 : 1);
+                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1 : param === 'hour' ? 0 : 1);
                 const mx = parseInt(hiddenInp?.max) || (param === 'year' ? 2100 : param === 'hour' ? 23 : 12);
                 if (isNaN(v) || v < mn) v = mn;
                 if (v > mx) v = mx;
