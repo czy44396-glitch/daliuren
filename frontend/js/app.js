@@ -1389,49 +1389,95 @@ function exportAsImage() {
         ctx.textAlign = 'center';
         ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
 
-        // ===== 导出：toDataURL（全平台兼容，含 iOS Safari） =====
-        var dataUrl = canvas.toDataURL('image/png');
+        // ===== 导出分发：按平台选择最佳策略 =====
         var filename = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
-
-        // 移动端 vs 桌面端处理
-        var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+        var isAndroid = /Android/i.test(navigator.userAgent);
         var isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-        if (isMobile) {
-            // 移动端：打开新窗口显示图片，用户长按保存
-            var w = window.open('', '_blank');
-            if (w) {
-                w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+filename+'</title><style>body{margin:0;padding:8px;background:#1a1614;text-align:center;font-family:sans-serif}img{max-width:100%;height:auto;border-radius:4px}p{color:#9a948c;font-size:13px;margin:12px 0}</style></head><body><p>'+filename+'</p><img src="'+dataUrl+'" alt="课盘"><p>长按图片即可保存到相册</p></body></html>');
-                w.document.close();
+        if (isAndroid) {
+            // Android Chrome 支持 toBlob + download → 直接下载
+            if (typeof canvas.toBlob === 'function') {
+                canvas.toBlob(function(blob) {
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url; a.download = filename;
+                    a.style.display = 'none';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function() {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 500);
+                }, 'image/png');
             } else {
-                // Popup blocked: show inline modal
-                var modal = document.createElement('div');
-                modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.95);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;overflow:auto';
-                modal.onclick = function() { modal.remove(); };
-                var img = document.createElement('img');
-                img.src = dataUrl;
-                img.style.cssText = 'max-width:100%;max-height:80vh;border-radius:6px;border:2px solid rgba(255,255,255,0.1)';
-                var tip = document.createElement('p');
-                tip.textContent = '长按图片 → 保存到相册';
-                tip.style.cssText = 'color:#c4b393;margin-top:16px;font-size:15px;font-family:"Noto Serif SC",serif';
-                var close = document.createElement('button');
-                close.textContent = '关闭';
-                close.style.cssText = 'margin-top:12px;padding:8px 32px;background:rgba(255,255,255,0.08);color:#f5f0e6;border:1px solid rgba(255,255,255,0.15);border-radius:6px;font-size:14px;cursor:pointer;font-family:inherit';
-                close.onclick = function(e) { e.stopPropagation(); modal.remove(); };
-                modal.appendChild(img);
-                modal.appendChild(tip);
-                modal.appendChild(close);
-                document.body.appendChild(modal);
+                // 降级：dataURL 下载
+                _triggerDownload(canvas.toDataURL('image/png'), filename);
             }
+        } else if (isIOS) {
+            // iOS Safari：不支持 download 属性 → 弹窗预览 + 长按保存
+            var dataUrl = canvas.toDataURL('image/png');
+            _showImageModal(dataUrl, filename);
         } else {
-            // 桌面端：下载
+            // 桌面端：直接下载
+            _triggerDownload(canvas.toDataURL('image/png'), filename);
+        }
+
+        // ---- 辅助函数 ----
+        function _triggerDownload(url, fname) {
             var a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = filename;
+            a.href = url; a.download = fname;
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
-            setTimeout(function() { document.body.removeChild(a); }, 200);
+            setTimeout(function() { document.body.removeChild(a); }, 300);
+        }
+
+        function _showImageModal(dataUrl, fname) {
+            // 移除旧弹窗
+            var old = document.querySelector('.export-img-modal');
+            if (old) old.remove();
+
+            var modal = document.createElement('div');
+            modal.className = 'export-img-modal';
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.95);z-index:9999;padding:16px;overflow:auto;display:flex;flex-direction:column;align-items:center';
+
+            // 标题栏
+            var bar = document.createElement('div');
+            bar.style.cssText = 'display:flex;justify-content:space-between;align-items:center;width:100%;max-width:600px;padding:8px 0;flex-shrink:0';
+            var title = document.createElement('span');
+            title.textContent = fname;
+            title.style.cssText = 'color:#9a948c;font-size:13px;font-family:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1';
+            var closeBtn = document.createElement('button');
+            closeBtn.textContent = '✕';
+            closeBtn.style.cssText = 'width:36px;height:36px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#c4b393;border-radius:50%;font-size:18px;cursor:pointer;flex-shrink:0;margin-left:12px;line-height:1';
+            closeBtn.onclick = function() { modal.remove(); };
+            bar.appendChild(title);
+            bar.appendChild(closeBtn);
+
+            // 图片容器（独立点击区，不关闭弹窗）
+            var imgWrap = document.createElement('div');
+            imgWrap.style.cssText = 'flex:1;display:flex;align-items:center;justify-content:center;width:100%;max-width:600px;min-height:0';
+            var img = document.createElement('img');
+            img.src = dataUrl;
+            img.style.cssText = 'max-width:100%;max-height:70vh;border-radius:6px;border:2px solid rgba(255,255,255,0.1);object-fit:contain';
+            // 阻止事件冒泡，防止点击图片关闭弹窗
+            img.onclick = function(e) { e.stopPropagation(); };
+            imgWrap.appendChild(img);
+
+            // 底部提示
+            var tip = document.createElement('p');
+            tip.textContent = '长按上方图片 → 保存到相册';
+            tip.style.cssText = 'color:#c4b393;margin:16px 0 8px;font-size:15px;font-family:"Noto Serif SC",serif;text-align:center;flex-shrink:0';
+
+            // 点击背景关闭
+            modal.onclick = function(e) {
+                if (e.target === modal) modal.remove();
+            };
+
+            modal.appendChild(bar);
+            modal.appendChild(imgWrap);
+            modal.appendChild(tip);
+            document.body.appendChild(modal);
         }
     } catch(e) {
         console.error('[export] error:', e);
