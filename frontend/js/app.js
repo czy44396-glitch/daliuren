@@ -1308,18 +1308,21 @@ function exportAsImage() {
                 ctx.textAlign = 'center';
                 ctx.fillText('旬空：'+(xk.join('、')||'无')+' | 行年：'+(data['行年']||'--')+'('+((data['行年详情']||{})['年龄']||'')+'岁) | '+(sj['公历']||''), W/2, footerY);
 
-                // 导出 blob
-                canvas.toBlob(function(blob) {
-                    if (!blob) { alert('导出失败：无法生成图片'); return; }
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    setTimeout(function() { URL.revokeObjectURL(url); }, 100);
-                }, 'image/png');
+                // 导出 blob（兼容移动端：toBlob → toDataURL 降级）
+                if (typeof canvas.toBlob === 'function') {
+                    canvas.toBlob(function(blob) {
+                        if (!blob) { alert('导出失败：无法生成图片'); return; }
+                        downloadBlob(blob, '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png');
+                    }, 'image/png');
+                } else {
+                    // iOS Safari / 旧浏览器降级：使用 toDataURL
+                    try {
+                        const dataUrl = canvas.toDataURL('image/png');
+                        downloadOrOpen(dataUrl, '大六壬_'+(sz['年柱']||'')+(sz['月柱']||'')+(sz['日柱']||'')+'.png');
+                    } catch (e2) {
+                        alert('导出失败：您的浏览器不支持此功能，请使用 Chrome 或桌面浏览器');
+                    }
+                }
             } catch (e) {
                 console.error('[export] 绘制失败:', e);
                 alert('导出失败：' + e.message);
@@ -1336,6 +1339,174 @@ function exportAsImage() {
         console.error('[export] 导出异常:', e);
         alert('导出失败：' + e.message);
     }
+}
+
+// ====== 移动端兼容下载辅助 ======
+
+/** 下载 Blob（桌面端标准方式） */
+function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    downloadOrOpen(url, filename);
+}
+
+/** 下载或在新标签打开图片（兼容移动端 Safari） */
+function downloadOrOpen(url, filename) {
+    // 检查是否为移动端（iOS Safari / Android WebView）
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+
+    if (isMobile) {
+        // 移动端：优先尝试下载，如果 download 属性不支持则打开新标签
+        // iOS Safari 不支持 download 属性，需要打开新标签让用户长按保存
+        const clicked = (function() {
+            try {
+                a.click();
+                return true;
+            } catch(e) {
+                return false;
+            }
+        })();
+        // 短暂延迟后如果未触发下载，打开新标签
+        setTimeout(function() {
+            document.body.removeChild(a);
+            // iOS Safari 打开新标签显示图片，用户可长按保存
+            if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                const w = window.open(url, '_blank');
+                if (!w) {
+                    // 弹窗被拦截时，在当前页面显示提示
+                    const msg = document.createElement('div');
+                    msg.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:rgba(26,22,20,0.92);color:#f5f0e6;padding:12px 24px;border-radius:8px;z-index:9999;font-size:14px;font-family:inherit;text-align:center;max-width:90vw';
+                    msg.textContent = '请长按上方链接保存图片，或使用 Chrome 浏览器导出';
+                    document.body.appendChild(msg);
+                    setTimeout(function() { msg.remove(); }, 4000);
+                }
+            }
+        }, 100);
+    } else {
+        // 桌面端：直接下载
+        a.click();
+        setTimeout(function() {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 200);
+    }
+}
+
+// ====== 符文盘点击编辑（年月日时手动输入） ======
+function attachRuneEdit() {
+    document.querySelectorAll('#time-portal .rune-disc').forEach(disc => {
+        const param = disc.dataset.param;  // "year" | "month" | "day" | "hour"
+        const valueEl = disc.querySelector('.rune-value');
+        if (!valueEl || !param) return;
+
+        let editing = false;
+
+        valueEl.style.pointerEvents = 'auto';
+        valueEl.style.cursor = 'text';
+        valueEl.title = '点击输入或滚轮调节';
+
+        valueEl.addEventListener('click', (e) => {
+            if (editing) return;
+            // 忽略 spin 按钮冒上来的事件
+            if (e.target.closest('.rune-spin') || e.target.closest('.quadrant-now')) return;
+
+            editing = true;
+            const inp = document.getElementById('param-' + param);
+            const curVal = inp ? inp.value : valueEl.textContent;
+            const discEl = disc;
+
+            // 创建编辑包裹器
+            const wrap = document.createElement('div');
+            wrap.className = 'rune-edit-wrap';
+
+            // 减号按钮
+            const btnMinus = document.createElement('button');
+            btnMinus.textContent = '−';
+            btnMinus.className = 'rune-edit-btn';
+            btnMinus.addEventListener('mousedown', (e2) => {
+                e2.preventDefault(); e2.stopPropagation();
+                adjustRuneValue(-1);
+            });
+
+            // 输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.inputMode = 'numeric';
+            input.pattern = '[0-9]*';
+            input.value = curVal;
+            input.className = 'rune-edit-input';
+
+            // 加号按钮
+            const btnPlus = document.createElement('button');
+            btnPlus.textContent = '+';
+            btnPlus.className = 'rune-edit-btn';
+            btnPlus.addEventListener('mousedown', (e2) => {
+                e2.preventDefault(); e2.stopPropagation();
+                adjustRuneValue(1);
+            });
+
+            wrap.appendChild(btnMinus);
+            wrap.appendChild(input);
+            wrap.appendChild(btnPlus);
+
+            // 隐藏原值，插入编辑器
+            valueEl.style.visibility = 'hidden';
+            discEl.appendChild(wrap);
+
+            function adjustRuneValue(delta) {
+                const hiddenInp = document.getElementById('param-' + param);
+                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1900 : param === 'hour' ? 0 : 1);
+                const mx = parseInt(hiddenInp?.max) || (param === 'year' ? 2100 : param === 'hour' ? 23 : 12);
+                let v = parseInt(input.value) || 0;
+                v = Math.max(mn, Math.min(mx, v + delta));
+                input.value = v;
+                if (hiddenInp) hiddenInp.value = v;
+            }
+
+            function finishEdit() {
+                const hiddenInp = document.getElementById('param-' + param);
+                let v = parseInt(input.value);
+                const mn = parseInt(hiddenInp?.min) || (param === 'year' ? 1900 : param === 'hour' ? 0 : 1);
+                const mx = parseInt(hiddenInp?.max) || (param === 'year' ? 2100 : param === 'hour' ? 23 : 12);
+                if (isNaN(v) || v < mn) v = mn;
+                if (v > mx) v = mx;
+                if (hiddenInp) hiddenInp.value = v;
+                valueEl.textContent = v;
+                valueEl.style.visibility = '';
+                if (wrap.parentNode) wrap.remove();
+                editing = false;
+
+                // 小时跨子时处理
+                if (param === 'hour') {
+                    handleHourDayLink(parseInt(curVal) || 0, v);
+                }
+                portalFixDayMax();
+                portalSyncDisplay();
+            }
+
+            input.addEventListener('blur', finishEdit);
+            input.addEventListener('keydown', (e2) => {
+                if (e2.key === 'Enter') { e2.preventDefault(); finishEdit(); }
+                if (e2.key === 'Escape') {
+                    e2.preventDefault();
+                    // 取消编辑，恢复原值
+                    const hiddenInp = document.getElementById('param-' + param);
+                    valueEl.textContent = hiddenInp ? hiddenInp.value : curVal;
+                    valueEl.style.visibility = '';
+                    if (wrap.parentNode) wrap.remove();
+                    editing = false;
+                }
+                if (e2.key === 'ArrowUp') { e2.preventDefault(); adjustRuneValue(1); }
+                if (e2.key === 'ArrowDown') { e2.preventDefault(); adjustRuneValue(-1); }
+            });
+
+            setTimeout(() => { input.focus(); input.select(); }, 50);
+        });
+    });
 }
 
 // ====== 初始化 ======
@@ -1966,4 +2137,5 @@ document.addEventListener('DOMContentLoaded', () => {
     try { Chat.showWelcome(); } catch(e) { console.warn('[app] Chat.showWelcome 失败:', e); }
     try { connectWebSocket(); } catch(e) { console.warn('[app] WebSocket 连接失败:', e); }
     try { loadAllTags(); } catch(e) { console.warn('[app] 预加载标签失败:', e); }
+    try { attachRuneEdit(); } catch(e) { console.warn('[app] rune-edit 初始化失败:', e); }
 });

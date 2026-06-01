@@ -288,7 +288,7 @@
     font-family: 'Noto Serif SC', serif;
     font-size: 30px; font-weight: 600;
     color: #1a1614;
-    z-index: 2; pointer-events: none;
+    z-index: 2; cursor: text;
     transition: all 0.4s ease;
 }
 #time-portal .rune-disc:hover .rune-value,
@@ -329,6 +329,58 @@
 #time-portal .rune-spin.up { top: 2px; }
 #time-portal .rune-spin.dn { bottom: 2px; }
 #time-portal .rune-spin:hover {
+    background: rgba(184,58,46,0.06);
+    border-color: rgba(184,58,46,0.25);
+    color: #b83a2e;
+}
+
+/* 符文盘内联编辑 — 点击数值直接输入 */
+#time-portal .rune-edit-wrap {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 4px;
+    z-index: 10;
+}
+#time-portal .rune-edit-input {
+    width: 64px; height: 34px;
+    text-align: center;
+    background: rgba(245,240,230,0.92);
+    border: 1px solid rgba(184,58,46,0.3);
+    color: #1a1614;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26px; font-weight: 600;
+    border-radius: 8px;
+    padding: 0 4px;
+    z-index: 10;
+    box-shadow: 0 0 12px rgba(184,58,46,0.08);
+    -webkit-appearance: none;
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+#time-portal .rune-edit-input:focus {
+    outline: none;
+    border-color: #b83a2e;
+    box-shadow: 0 0 16px rgba(184,58,46,0.15);
+}
+#time-portal .rune-edit-input::-webkit-inner-spin-button,
+#time-portal .rune-edit-input::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+#time-portal .rune-edit-btn {
+    width: 22px; height: 22px;
+    background: rgba(58,54,50,0.04);
+    border: 1px solid rgba(58,54,50,0.1);
+    color: #6b6560;
+    font-size: 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10;
+    padding: 0;
+    line-height: 1;
+}
+#time-portal .rune-edit-btn:hover {
     background: rgba(184,58,46,0.06);
     border-color: rgba(184,58,46,0.25);
     color: #b83a2e;
@@ -1254,7 +1306,7 @@
     margin-left: 6px;
     vertical-align: middle;
 }
-#board-app .sike-grid { display: flex; gap: 12px; }
+#board-app .sike-grid { display: flex; gap: 12px; flex-direction: row-reverse; }
 #board-app .sike-cell {
     flex: 1;
     text-align: center;
