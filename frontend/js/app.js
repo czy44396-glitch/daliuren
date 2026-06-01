@@ -730,6 +730,7 @@ async function showCases() {
 }
 
 function buildFilterBar() {
+    _mergeCustomTags();
     const filter = document.getElementById('cases-filter');
     let html = `<button class="btn btn-sm cat-btn ${currentCategory === '' ? 'active' : ''}" data-cat="">全部</button>`;
     const existingNames = new Set(_allTags.map(t => t.name));
@@ -762,16 +763,40 @@ function setCategory(cat) {
 }
 
 function addCategory() {
-    const cat = prompt('新建子库标签名称：', '');
+    var cat = prompt('新建子库标签名称：', '');
     if (!cat || !cat.trim()) return;
-    const tag = cat.trim();
-    // 添加到本地标签列表以便立即显示
-    if (!_allTags.find(t => t.name === tag)) {
+    var tag = cat.trim();
+
+    // 添加到本地标签列表
+    if (!_allTags.find(function(t) { return t.name === tag; })) {
         _allTags.push({ name: tag, count: 0 });
     }
+
+    // 持久化到 localStorage（跨会话保留）
+    var savedTags = [];
+    try {
+        savedTags = JSON.parse(localStorage.getItem('liuren_custom_tags') || '[]');
+    } catch(e) { savedTags = []; }
+    if (savedTags.indexOf(tag) === -1) {
+        savedTags.push(tag);
+        localStorage.setItem('liuren_custom_tags', JSON.stringify(savedTags));
+    }
+
     currentCategory = tag;
     buildFilterBar();
     loadCaseList();
+}
+
+// 在 buildFilterBar 中合并 localStorage 持久化标签
+function _mergeCustomTags() {
+    try {
+        var saved = JSON.parse(localStorage.getItem('liuren_custom_tags') || '[]');
+        saved.forEach(function(t) {
+            if (!_allTags.find(function(x) { return x.name === t; })) {
+                _allTags.push({ name: t, count: 0 });
+            }
+        });
+    } catch(e) {}
 }
 
 // ====== 个人解读笔记 ======
@@ -789,27 +814,59 @@ function openNotesEditor(caseId, caseData) {
     statusEl.className = '';
     editor.value = caseData.personal_notes || '';
 
-    // 在左面板渲染盘面预览
+    // 在左面板渲染完整盘面（天地盘 + 四课 + 三传）
     var panData = caseData.pan_data;
     var previewEl = document.getElementById('notes-pan-preview');
     if (panData && previewEl) {
-        // 临时把 board-svg 的内容渲染到预览区
-        // 保存当前的 pan 数据
         var savedPan = currentPanData;
         currentPanData = panData;
 
-        // 创建一个小型 SVG 容器
-        previewEl.innerHTML = '<svg id="notes-preview-svg" viewBox="0 0 660 600" style="width:100%;height:auto"></svg>';
-        // 借用渲染函数（需要临时替换 svg id）
-        var realSvg = document.getElementById('board-svg');
-        // 保存真正的 board-svg
-        var realSvgParent = realSvg ? realSvg.parentNode : null;
-        var realSvgHTML = realSvg ? realSvg.outerHTML : '';
+        var html = '<svg id="notes-preview-svg" viewBox="0 0 660 600" style="width:100%;height:auto"></svg>';
 
-        // 直接在预览 SVG 上渲染
+        // 四课 mini 卡片
+        var sike = panData['四课详情'] || [];
+        var dgAll = panData['遁干'] || {};
+        var tjAll = panData['十二天将'] || {};
+        var xk = panData['旬空'] || [];
+        var DZC_m = {'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
+        var TJS_m = {'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
+
+        if (sike.length) {
+            html += '<div style="display:flex;gap:6px;margin-top:8px">';
+            for (var si = 0; si < sike.length; si++) {
+                var sk = sike[si];
+                var sn = sk['上神'], dp = sk['地盘'];
+                var snK = xk.indexOf(sn) >= 0;
+                var dg = dgAll[sn] || '';
+                var tjF = tjAll[sk['地盘地支']||sk['地盘']] || '';
+                html += '<div style="flex:1;text-align:center;padding:6px 4px;background:#fefcf7;border:1px solid #e0d5c1;border-radius:6px">';
+                html += '<div style="font-size:10px;color:#9c8b72">'+dg+' '+ (TJS_m[tjF]||'') +'</div>';
+                html += '<div style="font-size:28px;font-weight:700;color:'+(snK?'#bbb':(DZC_m[sn]||'#2c2416'))+'">'+sn+'</div>';
+                html += '<div style="font-size:18px;font-weight:700;color:'+(DZC_m[dp]||'#2c2416')+'">'+dp+'</div>';
+                html += '</div>';
+            }
+            html += '</div>';
+        }
+
+        // 三传 mini
+        var sanc = panData['三传'] || {};
+        if (sanc['初传']) {
+            var scZ = [sanc['初传'],sanc['中传'],sanc['末传']];
+            html += '<div style="display:flex;gap:10px;align-items:center;justify-content:center;margin-top:6px;font-family:serif">';
+            for (var ii = 0; ii < 3; ii++) {
+                var zclr = DZC_m[scZ[ii]] || '#2c2416';
+                html += '<span style="display:inline-block;width:36px;height:36px;line-height:36px;border-radius:50%;border:2px solid '+zclr+';color:'+zclr+';font-size:22px;font-weight:700;text-align:center;background:#fff">'+scZ[ii]+'</span>';
+                if (ii < 2) html += '<span style="color:#b83a2e;font-weight:bold">→</span>';
+            }
+            html += '<span style="font-size:11px;color:#6b5e4a;margin-left:4px">'+ (sanc['方法']||'') +'课</span>';
+            html += '</div>';
+        }
+
+        previewEl.innerHTML = html;
+
+        // 渲染天地盘 SVG
         _renderTiandiPanSVG_to(panData, 'notes-preview-svg');
 
-        // 恢复
         currentPanData = savedPan;
     } else if (previewEl) {
         previewEl.innerHTML = '<div class="notes-pan-placeholder">无盘面数据</div>';
@@ -1276,8 +1333,8 @@ function exportAsImage() {
         const xk = data['旬空'] || [];
         const td = data['天地盘'] || {};
 
-        // 三层级布局：天地盘(大) → 四课(中) → 三传(小)，信息左上对齐
-        var W = 1200, H = 1040;
+        // 版式：无标题 · 四柱左上 · 天地盘居中 · 四课三传横排（三传纵向）
+        var W = 1200, H = 1060;
         var canvas = document.createElement('canvas');
         canvas.width = W; canvas.height = H;
         var ctx = canvas.getContext('2d');
@@ -1290,33 +1347,25 @@ function exportAsImage() {
         var TJC_map = {'贵人':'#7D5A3C','天空':'#7D5A3C','勾陈':'#7D5A3C','太常':'#7D5A3C','青龙':'#2d7d46','六合':'#2d7d46','白虎':'#D4A017','太阴':'#D4A017','天后':'#1a3a5c','玄武':'#1a3a5c','螣蛇':'#c94043','朱雀':'#c94043'};
         var DZ_list = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
         var POS_map = {'巳':[0,0],'午':[0,1],'未':[0,2],'申':[0,3],'辰':[1,0],'酉':[1,3],'卯':[2,0],'戌':[2,3],'寅':[3,0],'丑':[3,1],'子':[3,2],'亥':[3,3]};
-        var WUXING_MAP = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
 
-        // ===== 左上角信息区 =====
-        var infoX = 20, infoY = 18;
-        ctx.fillStyle = '#8b1a2b';
-        ctx.font = 'bold 22px "Noto Serif SC","SimSun",serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('大六壬课例', infoX, infoY + 18);
-
-        // 四柱 — 左边并排
+        // ===== 左上角：四柱 =====
+        var infoX = 20, infoY = 16;
         var pillars = ['年柱','月柱','日柱','时柱'];
-        var px = infoX + 150;
         pillars.forEach(function(k, i) {
             var gz = sz[k] || '--';
-            var x = px + i * 85;
+            var x = infoX + i * 90;
             ctx.textAlign = 'center';
-            ctx.font = 'bold 16px "Noto Serif SC",serif';
+            ctx.font = 'bold 17px "Noto Serif SC",serif';
             ctx.fillStyle = '#b8860b';
-            ctx.fillText(gz[0]||'', x, infoY + 10);
+            ctx.fillText(gz[0]||'', x, infoY + 14);
             ctx.fillStyle = '#8b1a2b';
-            ctx.fillText(gz[1]||'', x, infoY + 30);
+            ctx.fillText(gz[1]||'', x, infoY + 36);
             ctx.fillStyle = '#9c8b72';
             ctx.font = '10px "Noto Sans SC",sans-serif';
-            ctx.fillText(k[0], x, infoY + 44);
+            ctx.fillText(k[0], x, infoY + 50);
         });
 
-        // 右上方：月将/节气/昼夜/课式/日期
+        // ===== 右上角：月将/节气/昼夜/课式/日期 =====
         ctx.textAlign = 'right';
         ctx.fillStyle = '#6b6560';
         ctx.font = 'bold 13px "Noto Serif SC",serif';
@@ -1325,8 +1374,8 @@ function exportAsImage() {
         ctx.font = '12px "Noto Sans SC","Microsoft YaHei",sans-serif';
         ctx.fillText(sj['公历']||'', W - 20, infoY + 34);
 
-        // ===== 天地盘（最大，占主视觉） =====
-        var cw = 148, ch = 122, cgap = 5;
+        // ===== 天地盘（最大，视觉主体） =====
+        var cw = 152, ch = 120, cgap = 5;
         var boardW = 4*cw + 3*cgap;
         var boardH = 4*ch + 3*cgap;
         var boardX = Math.floor((W - boardW) / 2);
@@ -1359,13 +1408,13 @@ function exportAsImage() {
             ctx.lineWidth = 2;
             ctx.beginPath(); ctx.roundRect(cx, cy, cw, ch, 5); ctx.stroke();
 
-            // 遁干
+            // 遁干（最上方）
             ctx.fillStyle = '#6b5e4a';
             ctx.font = 'bold 11px "Noto Serif SC",serif';
             ctx.textAlign = 'center';
             ctx.fillText(dun, midX, midY - 26);
 
-            // 天将
+            // 天将（遁干下方，居中对齐）
             var tjS = TJS_map[jiang] || '';
             ctx.fillStyle = TJC_map[jiang] || '#8b1a2b';
             ctx.font = 'bold 17px "Noto Sans SC","Microsoft YaHei",sans-serif';
@@ -1394,12 +1443,13 @@ function exportAsImage() {
             ctx.textAlign = 'center';
         }
 
-        // ===== 四课（中间层，字体上下对称） =====
-        var sikeY = boardY + boardH + 8;
-        var cellW = 255, cellH = 185, cellGap = 10;
+        // ===== 四课 + 三传 横排区域 =====
+        var midY_start = boardY + boardH + 24;  // 与天地盘保持呼吸感间距
+        var cellW = 222, cellH = 185, cellGap = 8;
         var sikeTotalW = 4*cellW + 3*cellGap;
-        var sikeX = Math.floor((W - sikeTotalW) / 2);
+        var sikeX = Math.floor((W - sikeTotalW - 140) / 2); // 为三传留140px
 
+        // ---- 四课（4列居中，内容垂直居中） ----
         for (var si = 0; si < sike.length; si++) {
             var sk = sike[si];
             var sn = sk['上神'];
@@ -1413,70 +1463,82 @@ function exportAsImage() {
             var sx = sikeX + si*(cellW+cellGap);
             var scx = sx + cellW/2;
 
+            // 计算垂直内容区：上神+地盘合计约86px，剩余空间上下均分
+            var contentH = 130; // 遁干(22) + 神将(24) + 上神(48) + 地盘(36) ≈ 130
+            var topPad = (cellH - contentH) / 2; // 上下均匀留白
+            var baseY = midY_start + topPad;
+
             ctx.fillStyle = '#fefcf7';
-            ctx.fillRect(sx, sikeY, cellW, cellH);
+            ctx.fillRect(sx, midY_start, cellW, cellH);
             ctx.strokeStyle = '#e0d5c1';
             ctx.lineWidth = 1;
-            ctx.strokeRect(sx, sikeY, cellW, cellH);
+            ctx.strokeRect(sx, midY_start, cellW, cellH);
 
-            // 遁干 + 天将
+            // 遁干（最上，居中）
             ctx.fillStyle = '#9c8b72';
-            ctx.font = 'bold 13px "Noto Serif SC",serif';
+            ctx.font = 'bold 14px "Noto Serif SC",serif';
             ctx.textAlign = 'center';
-            ctx.fillText(dg + ' ' + tj, scx, sikeY + 20);
+            ctx.fillText(dg, scx, baseY + 16);
 
-            // 上神
+            // 神将（遁干正下方，居中）
+            ctx.fillStyle = '#8b1a2b';
+            ctx.font = 'bold 16px "Noto Sans SC","Microsoft YaHei",sans-serif';
+            ctx.fillText(tj, scx, baseY + 40);
+
+            // 上神（主体大字，居中）
             ctx.fillStyle = clrSn;
             ctx.font = 'bold 42px "Noto Serif SC",serif';
-            ctx.fillText(sn, scx, sikeY + 72);
+            ctx.fillText(sn, scx, baseY + 88);
 
-            // 地盘（与上神差距缩到最小，保持视觉对称）
+            // 地盘（与上神同轴居中）
             ctx.fillStyle = clrDp;
             ctx.font = 'bold 36px "Noto Serif SC",serif';
-            ctx.fillText(dp, scx, sikeY + 128);
-
+            ctx.fillText(dp, scx, baseY + 138);
         }
 
-        // ===== 三传（最下层，精简小圆） =====
-        var sanTop = sikeY + cellH + 10;
+        // ---- 三传（右侧纵排） ----
+        var scRightX = sikeX + sikeTotalW + 16;
         var scR = 30;
-        var scCY = sanTop + scR + 4;
-        var scStep = 160;
-        var scStartX = W/2 - scStep;
+        var scCY_start = midY_start + 54;
+        var scCY_gap = 68;
 
-        var items = [{z:sc['初传']},{z:sc['中传']},{z:sc['末传']}];
-
-        // 箭头
-        ctx.fillStyle = '#b83a2e';
-        ctx.font = 'bold 22px sans-serif';
-        ctx.textAlign = 'center';
-        for (var ii = 0; ii < 2; ii++) {
-            var a1 = scStartX + ii * scStep;
-            var a2 = scStartX + (ii+1) * scStep;
-            ctx.fillText('→', (a1 + a2) / 2, scCY + 8);
-        }
+        var items = [{z:sc['初传'],l:'初'},{z:sc['中传'],l:'中'},{z:sc['末传'],l:'末'}];
 
         for (var ii = 0; ii < 3; ii++) {
-            var scX = scStartX + ii * scStep;
+            var scCY = scCY_start + ii * scCY_gap;
             var clr = DZC_map[items[ii].z] || '#2c2416';
             var izKong = xk.indexOf(items[ii].z) >= 0;
             if (izKong) clr = '#bbb';
 
+            // 箭头（圆之间）
+            if (ii > 0) {
+                ctx.fillStyle = '#b83a2e';
+                ctx.font = 'bold 18px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('↓', scRightX + 36, scCY - scR - 8);
+            }
+
+            // 圆
             ctx.fillStyle = '#fff';
             ctx.beginPath();
-            ctx.arc(scX, scCY, scR, 0, Math.PI*2);
+            ctx.arc(scRightX + 36, scCY, scR, 0, Math.PI*2);
             ctx.fill();
             ctx.strokeStyle = clr;
             ctx.lineWidth = 3;
             ctx.stroke();
 
+            // 地支大字
             ctx.fillStyle = clr;
             ctx.font = 'bold 30px "Noto Serif SC",serif';
-            ctx.fillText(items[ii].z, scX, scCY + 12);
+            ctx.textAlign = 'center';
+            ctx.fillText(items[ii].z, scRightX + 36, scCY + 12);
 
+            // 标签（圆右侧）
             ctx.fillStyle = '#6b5e4a';
             ctx.font = 'bold 11px "Noto Sans SC","Microsoft YaHei",sans-serif';
-            ctx.fillText(['初传','中传','末传'][ii], scX, scCY + scR + 16);
+            ctx.textAlign = 'left';
+            ctx.fillText(items[ii].l+'传', scRightX + 72, scCY + 6);
+            ctx.textAlign = 'center';
         }
 
         // ===== 导出分发：按平台 + PWA状态选择最佳策略 =====
