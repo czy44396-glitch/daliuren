@@ -43,10 +43,8 @@ function _toolbarClick(e) {
 
 function openMyNotes() {
     if (!currentLoadedCaseId) return;
-    fetch(`/api/cases/${currentLoadedCaseId}`)
-        .then(r => r.json())
-        .then(r => { if (r.success) openNotesEditor(currentLoadedCaseId, r.case); })
-        .catch(e => console.error(e));
+    var caseObj = _caseGet(currentLoadedCaseId);
+    if (caseObj) openNotesEditor(currentLoadedCaseId, caseObj);
 }
 function exportCurrentPan() {
     if (!currentPanData) { alert('请先排盘'); return; }
@@ -353,15 +351,30 @@ async function shiftTime(dir) {
     updateShiftTimeLabel();
     await doUpdatePan();
 }
+// ====== 案例 localStorage 存储（云端文件系统不持久） ======
+const _CASE_KEY = 'liuren_case_index';
+const _CASE_PFX = 'liuren_case_';
+function _caseList() { try { return JSON.parse(localStorage.getItem(_CASE_KEY) || '[]'); } catch(e) { return []; } }
+function _caseSaveIdx(list) { localStorage.setItem(_CASE_KEY, JSON.stringify(list)); }
+function _caseGet(id) { try { return JSON.parse(localStorage.getItem(_CASE_PFX + id)); } catch(e) { return null; } }
+function _casePut(c) {
+    localStorage.setItem(_CASE_PFX + c.id, JSON.stringify(c));
+    var idx = _caseList(); var hit = false;
+    for (var i = 0; i < idx.length; i++) { if (idx[i].id === c.id) { idx[i] = _caseEntry(c); hit = true; break; } }
+    if (!hit) idx.unshift(_caseEntry(c));
+    _caseSaveIdx(idx);
+}
+function _caseDel(id) { localStorage.removeItem(_CASE_PFX + id); _caseSaveIdx(_caseList().filter(function(e) { return e.id !== id; })); }
+function _caseEntry(c) { return {id:c.id,name:c.name,tags:c.tags||[c.category||'其他'],created:c.created,has_notes:!!(c.personal_notes&&c.personal_notes.trim()),note_updated:c.personal_notes_updated||''}; }
+
 let _saveTags = [];    // 当前正在编辑的标签列表
 let _allTags = [];     // 所有已有标签（含使用次数）
 
-async function loadAllTags() {
-    try {
-        const resp = await fetch('/api/cases/tags');
-        const r = await resp.json();
-        if (r.success) _allTags = r.tags;
-    } catch(e) { /* 静默 */ }
+function loadAllTags() {
+    var idx = _caseList();
+    var tc = {};
+    idx.forEach(function(e) { var tags = e.tags || []; tags.forEach(function(t) { t = t.trim(); if (t) tc[t] = (tc[t]||0) + 1; }); });
+    _allTags = Object.keys(tc).map(function(k) { return {name:k, count:tc[k]}; }).sort(function(a,b) { return b.count - a.count; });
 }
 
 function showSaveModal() {
@@ -427,151 +440,127 @@ function addSaveTag(tag) {
     document.getElementById('save-tag-input').value = '';
 }
 
-async function confirmSave() {
-    const name = document.getElementById('save-name-input').value.trim();
-    const tags = _saveTags.length > 0 ? _saveTags : ['其他'];
+function confirmSave() {
+    var name = document.getElementById('save-name-input').value.trim();
+    var tags = _saveTags.length > 0 ? _saveTags : ['其他'];
     hideSaveModal();
-    try {
-        const resp = await fetch('/api/cases/save', {
-            method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({pan_data:currentPanData, name, tags, category: tags[0]}),
-        });
-        const r = await resp.json();
-        if (r.success) {
-            currentLoadedCaseId = r.id;
-            Chat.addMessage('system', `案例已保存：${r.name} [${tags.join('、')}]。点击「✎ 我的解读」撰写个人笔记。`);
-            updateMyNotesBtn({ personal_notes: '' });
-            loadAllTags(); // 刷新标签列表
-        } else { Chat.addMessage('system', `保存失败：${r.error}`); }
-    } catch(e) { Chat.addMessage('system', `保存出错: ${e.message}`); }
+    var ts = new Date().toISOString().replace(/[:.]/g,'').slice(0,15);
+    var sz = (currentPanData['时间']||{})['四柱'] || {};
+    var defName = (sz['年柱']||'')+'年'+(sz['月柱']||'')+'月'+(sz['日柱']||'')+'日'+(sz['时柱']||'')+'时';
+    var caseObj = {
+        id: ts, name: name || defName, tags: tags, category: tags[0],
+        created: new Date().toISOString(), pan_data: currentPanData,
+        personal_notes: '', personal_notes_updated: ''
+    };
+    _casePut(caseObj);
+    currentLoadedCaseId = ts;
+    Chat.addMessage('system', '案例已保存：' + caseObj.name + ' [' + tags.join('、') + ']。点击「✎ 我的解读」撰写个人笔记。');
+    updateMyNotesBtn({ personal_notes: '' });
+    loadAllTags();
 }
 
-async function loadCaseList() {
-    try {
-        const [resp, tagResp] = await Promise.all([
-            fetch('/api/cases/list'),
-            fetch('/api/cases/tags'),
-        ]);
-        const r = await resp.json();
-        if (!r.success) return;
-        // 刷新标签
-        const tr = await tagResp.json();
-        if (tr.success) _allTags = tr.tags;
+function loadCaseList() {
+    loadAllTags();
+    var idx = _caseList();
+    var list = document.getElementById('cases-list');
+    var cases = idx;
+    if (currentCategory) {
+        cases = cases.filter(function(c) { return (c.tags || []).indexOf(currentCategory) >= 0; });
+    }
+    if (cases.length === 0) {
+        list.innerHTML = '<div style="padding:20px;color:var(--text3)">' + (currentCategory ? '「'+currentCategory+'」暂无案例' : '暂无保存的案例') + '</div>';
+        return;
+    }
+    list.innerHTML = '';
+    cases.forEach(function(c) {
+        var div = document.createElement('div');
+        div.className = 'case-item';
+        var tagHtml = (c.tags || []).map(function(t) { return '<span class="case-cat-tag" data-tag="'+t+'" style="cursor:pointer">'+t+'</span>'; }).join('');
+        div.innerHTML = '<input type="checkbox" class="case-cb" value="'+c.id+'">' +
+            '<span class="case-tags-wrap">'+tagHtml+'</span>' +
+            '<span class="case-name">'+c.name+(c.has_notes?'<span class="case-has-notes" title="有个人笔记"></span>':'')+'</span>' +
+            '<span class="case-date">'+(c.created||'').slice(0,16)+'</span>' +
+            '<button class="btn btn-sm case-load" data-id="'+c.id+'">加载</button>' +
+            '<button class="btn btn-sm case-btn-notes" data-id="'+c.id+'">笔记</button>' +
+            '<button class="btn btn-sm case-rename" data-id="'+c.id+'" data-name="'+c.name.replace(/"/g,'&quot;')+'">改名</button>' +
+            '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>';
+        list.appendChild(div);
+    });
 
-        const list = document.getElementById('cases-list');
-        let cases = r.cases;
-        if (currentCategory) {
-            cases = cases.filter(c => {
-                const tags = c.tags || [c.category || '其他'];
-                return tags.includes(currentCategory);
-            });
-        }
-        if (cases.length === 0) {
-            list.innerHTML = `<div style="padding:20px;color:var(--text3)">${currentCategory ? `「${currentCategory}」暂无案例` : '暂无保存的案例'}</div>`;
-            return;
-        }
-        list.innerHTML = '';
-        cases.forEach(c => {
-            const div = document.createElement('div');
-            div.className = 'case-item';
-            const hasNotes = c.has_notes;
-            const tags = c.tags || [c.category || '其他'];
-            const tagHtml = tags.map(t =>
-                `<span class="case-cat-tag" data-tag="${t}" style="cursor:pointer">${t}</span>`
-            ).join('');
-            div.innerHTML = `
-                <input type="checkbox" class="case-cb" value="${c.id}">
-                <span class="case-tags-wrap">${tagHtml}</span>
-                <span class="case-name">${c.name}${hasNotes ? '<span class="case-has-notes" title="有个人笔记"></span>' : ''}</span>
-                <span class="case-date">${c.created?.slice(0,16)||''}</span>
-                <button class="btn btn-sm case-load" data-id="${c.id}">加载</button>
-                <button class="btn btn-sm case-btn-notes" data-id="${c.id}">笔记</button>
-                <button class="btn btn-sm case-rename" data-id="${c.id}" data-name="${c.name.replace(/"/g,'&quot;')}">改名</button>
-                <button class="btn btn-sm case-del" data-id="${c.id}">删</button>`;
-            list.appendChild(div);
-        });
+    // 标签点击筛选
+    list.querySelectorAll('.case-cat-tag').forEach(function(el) {
+        el.addEventListener('click', function(e) { e.stopPropagation(); setCategory(el.dataset.tag); });
+    });
 
-        // 标签点击筛选
-        list.querySelectorAll('.case-cat-tag').forEach(el => {
-            el.addEventListener('click', (e) => {
-                e.stopPropagation();
-                setCategory(el.dataset.tag);
-            });
-        });
-        list.querySelectorAll('.case-load').forEach(b => b.addEventListener('click', async () => {
-            const resp = await fetch(`/api/cases/${b.dataset.id}`);
-            const r = await resp.json();
-            if (r.success && r.case.pan_data) {
-                currentPanData = r.case.pan_data;
-                currentLoadedCaseId = r.case.id;
-                document.getElementById('board-container').innerHTML = '<svg id="board-svg" viewBox="0 0 660 600"></svg>';
-                renderBoard(currentPanData);
-                Params.setInfo(currentPanData);
-                const pd = r.case.pan_data;
-                const timeStr = pd["时间"]["公历"];
-                const parts = timeStr.match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/);
-                if (parts) Params.setDate(parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parseInt(parts[5]));
-                document.getElementById('board-param-zhanshi').value = pd["排盘参数"]["占时"] || 'auto';
-                if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'set_pan',data:currentPanData}));
-                document.getElementById('cases-modal').style.display = 'none';
-                compareContext = null;
-                Chat.clear(); Chat.addMessage('system', `已加载：${r.case.name}`);
-                // 显示/隐藏"我的解读"按钮
-                updateMyNotesBtn(r.case);
-                showCorrectSCBtn();
-                // 显示分析面板并加载已有分析
-                resetAnalysisFields(); showViewButtons();
-                const notes = r.case.personal_notes || '';
-                loadAnalysisFromNotes(notes);
-            }
-        }));
-        list.querySelectorAll('.case-rename').forEach(b => b.addEventListener('click', async () => {
-            const newName = prompt('新名称：', b.dataset.name);
-            if (newName && newName !== b.dataset.name) {
-                await fetch(`/api/cases/${b.dataset.id}/rename`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:newName})});
-                loadCaseList();
-            }
-        }));
-        list.querySelectorAll('.case-del').forEach(b => b.addEventListener('click', async () => {
-            if (!confirm('确认删除？')) return;
-            await fetch(`/api/cases/${b.dataset.id}`, {method:'DELETE'});
+    // 加载案例
+    list.querySelectorAll('.case-load').forEach(function(b) { b.addEventListener('click', function() {
+        var caseObj = _caseGet(b.dataset.id);
+        if (caseObj && caseObj.pan_data) {
+            currentPanData = caseObj.pan_data;
+            currentLoadedCaseId = caseObj.id;
+            document.getElementById('board-container').innerHTML = '<svg id="board-svg" viewBox="0 0 660 600"></svg>';
+            renderBoard(currentPanData);
+            Params.setInfo(currentPanData);
+            var timeStr = caseObj.pan_data['时间']['公历'];
+            var parts = timeStr.match(/(\d+)-(\d+)-(\d+) (\d+):(\d+)/);
+            if (parts) Params.setDate(parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), parseInt(parts[5]));
+            document.getElementById('board-param-zhanshi').value = caseObj.pan_data['排盘参数']['占时'] || 'auto';
+            if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({type:'set_pan',data:currentPanData}));
+            document.getElementById('cases-modal').style.display = 'none';
+            compareContext = null;
+            Chat.clear(); Chat.addMessage('system', '已加载：'+caseObj.name);
+            updateMyNotesBtn(caseObj);
+            showCorrectSCBtn();
+            resetAnalysisFields(); showViewButtons();
+            loadAnalysisFromNotes(caseObj.personal_notes || '');
+        }
+    }); });
+
+    // 改名
+    list.querySelectorAll('.case-rename').forEach(function(b) { b.addEventListener('click', function() {
+        var newName = prompt('新名称：', b.dataset.name);
+        if (newName && newName !== b.dataset.name) {
+            var caseObj = _caseGet(b.dataset.id);
+            if (caseObj) { caseObj.name = newName; _casePut(caseObj); }
             loadCaseList();
-        }));
-        // 笔记按钮
-        list.querySelectorAll('.case-btn-notes').forEach(b => b.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const caseId = b.dataset.id;
-            try {
-                const resp = await fetch(`/api/cases/${caseId}`);
-                const r = await resp.json();
-                if (r.success) {
-                    openNotesEditor(caseId, r.case);
-                }
-            } catch(err) { console.error(err); }
-        }));
-    } catch(e) { console.error(e); }
+        }
+    }); });
+
+    // 删除
+    list.querySelectorAll('.case-del').forEach(function(b) { b.addEventListener('click', function() {
+        if (!confirm('确认删除？')) return;
+        _caseDel(b.dataset.id);
+        loadCaseList();
+    }); });
+
+    // 笔记按钮
+    list.querySelectorAll('.case-btn-notes').forEach(function(b) { b.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var caseObj = _caseGet(b.dataset.id);
+        if (caseObj) openNotesEditor(b.dataset.id, caseObj);
+    }); });
 }
 
 async function compareCases() {
-    const checked = document.querySelectorAll('.case-cb:checked');
-    const ids = Array.from(checked).map(cb => cb.value);
+    var checked = document.querySelectorAll('.case-cb:checked');
+    var ids = Array.from(checked).map(function(cb) { return cb.value; });
     if (ids.length < 2) {
-        const h = document.getElementById('compare-hint');
-        h.textContent = '⚠ 请至少勾选2个案例'; h.style.color = 'var(--red)';
-        setTimeout(() => { h.textContent = '勾选2+案例后点击对比'; h.style.color = 'var(--text3)'; }, 2000);
+        var h = document.getElementById('compare-hint');
+        h.textContent = '请至少勾选2个案例'; h.style.color = 'var(--red)';
+        setTimeout(function() { h.textContent = '勾选2+案例后点击对比'; h.style.color = 'var(--text3)'; }, 2000);
         return;
     }
-    const question = '请找出这些案例的共同特征和关键规律，特别注意三传、六亲、天将的重复模式';
+    var question = '请找出这些案例的共同特征和关键规律，特别注意三传、六亲、天将的重复模式';
     document.getElementById('cases-modal').style.display = 'none';
-    Chat.clear(); Chat.addMessage('system', `正在对比 ${ids.length} 个案例...`);
+    Chat.clear(); Chat.addMessage('system', '正在对比 ' + ids.length + ' 个案例...');
     try {
-        const resp = await fetch('/api/cases/compare', {
+        var resp = await fetch('/api/cases/compare', {
             method:'POST',headers:{'Content-Type':'application/json'},
-            body:JSON.stringify({ids, question}),
+            body:JSON.stringify({ids:ids, question:question}),
         });
-        const r = await resp.json();
+        var r = await resp.json();
         if (r.success) {
-            compareContext = {ids, analysis: r.analysis};
+            compareContext = {ids:ids, analysis: r.analysis};
             Chat.onChatResponse(r.analysis);
             Chat.addMessage('system', '对比完成。你可以在下方继续追问。');
         } else { Chat.onError(r.error || '对比失败'); }
@@ -722,9 +711,9 @@ function hideHistory() {
     document.getElementById('history-modal').style.display = 'none';
 }
 
-async function showCases() {
+function showCases() {
     document.getElementById('cases-modal').style.display = 'flex';
-    await loadAllTags();
+    loadAllTags();
     buildFilterBar();
     loadCaseList();
 }
@@ -969,35 +958,23 @@ function hideNotesModal() {
     _notesCaseId = null;
 }
 
-async function savePersonalNotes(silent) {
+function savePersonalNotes(silent) {
     if (!_notesCaseId) return;
     var notes = document.getElementById('notes-editor').value;
     var statusEl = document.getElementById('notes-status');
-    if (!silent) {
-        statusEl.textContent = '保存中...';
-        statusEl.className = '';
-    }
-    try {
-        var resp = await fetch('/api/cases/' + _notesCaseId + '/personal-notes', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes: notes }),
-        });
-        var r = await resp.json();
-        if (r.success) {
-            if (silent) {
-                statusEl.textContent = '已自动保存 ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
-                statusEl.className = 'saved';
-            } else {
-                statusEl.textContent = '已保存 ✓';
-                statusEl.className = 'saved';
-                setTimeout(function() { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
-            }
-        } else {
-            statusEl.textContent = '保存失败: ' + (r.error || '');
-        }
-    } catch (e) {
-        statusEl.textContent = '保存出错: ' + e.message;
+    if (!silent) { statusEl.textContent = '保存中...'; statusEl.className = ''; }
+    var caseObj = _caseGet(_notesCaseId);
+    if (!caseObj) { statusEl.textContent = '保存失败：案例不存在'; return; }
+    caseObj.personal_notes = notes;
+    caseObj.personal_notes_updated = new Date().toISOString();
+    _casePut(caseObj);
+    if (silent) {
+        statusEl.textContent = '已自动保存 ' + new Date().toLocaleTimeString('zh-CN', {hour:'2-digit',minute:'2-digit'});
+        statusEl.className = 'saved';
+    } else {
+        statusEl.textContent = '已保存 ✓';
+        statusEl.className = 'saved';
+        setTimeout(function() { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
     }
 }
 
@@ -1195,7 +1172,7 @@ function resetAnalysisFields() {
 
 // ====== 分析笔记面板 ======
 
-async function saveAnalysis() {
+function saveAnalysis() {
     const analysis = {
         keshi: document.getElementById('af-keshi').value.trim(),
         sanchuan: document.getElementById('af-sanchuan').value.trim(),
@@ -1235,26 +1212,16 @@ ${analysis.shensha || '（待填）'}
 ${analysis.zonghe || '（待填）'}
 `;
 
-    statusEl.textContent = '保存中...';
-    try {
-        const resp = await fetch(`/api/cases/${currentLoadedCaseId}/personal-notes`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ notes: md }),
-        });
-        const r = await resp.json();
-        if (r.success) {
-            statusEl.textContent = '已保存 ✓';
-            statusEl.className = 'saved';
-            const myNotesBtn = document.getElementById('btn-my-notes');
-            if (myNotesBtn) myNotesBtn.classList.add('has-notes');
-            setTimeout(() => { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
-        } else {
-            statusEl.textContent = '保存失败: ' + (r.error || '');
-        }
-    } catch (e) {
-        statusEl.textContent = '保存出错: ' + e.message;
-    }
+    var caseObj = _caseGet(currentLoadedCaseId);
+    if (!caseObj) { statusEl.textContent = '保存失败：案例数据丢失'; return; }
+    caseObj.personal_notes = md;
+    caseObj.personal_notes_updated = new Date().toISOString();
+    _casePut(caseObj);
+    statusEl.textContent = '已保存 ✓';
+    statusEl.className = 'saved';
+    var myNotesBtn = document.getElementById('btn-my-notes');
+    if (myNotesBtn) myNotesBtn.classList.add('has-notes');
+    setTimeout(function() { statusEl.textContent = ''; statusEl.className = ''; }, 2000);
 }
 
 function loadAnalysisFromNotes(notes) {
