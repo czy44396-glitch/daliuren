@@ -1730,6 +1730,51 @@ function exportAsImage() {
     }
 }
 
+// ====== 排盘页出生年份修改（联动行年） ======
+function editBirthYearOnBoard() {
+    var curVal = document.getElementById('board-param-birth-year')?.value || '';
+    var newYear = prompt('请输入出生年份（公历）：', curVal || '1990');
+    if (!newYear) return;
+    var y = parseInt(newYear);
+    if (isNaN(y) || y < 1 || y > 2100) { alert('请输入有效年份（1-2100）'); return; }
+
+    // 更新隐藏输入
+    var inpEl = document.getElementById('board-param-birth-year');
+    if (inpEl) inpEl.value = y;
+    // 同步入口页
+    var portalEl = document.getElementById('param-birth-year');
+    if (portalEl) portalEl.value = y;
+    var birthDisp = document.getElementById('info-birth-val');
+    if (birthDisp) birthDisp.textContent = y;
+
+    // 更新显示
+    var byEl = document.getElementById('info-birth-year');
+    if (byEl) { byEl.textContent = y; byEl.style.cursor = 'pointer'; }
+
+    if (!currentPanData) return;
+    // 重新计算行年
+    var now = new Date();
+    var curYear = parseInt(currentPanData['时间']['公历']?.split('-')[0]) || now.getFullYear();
+    var sex = document.getElementById('board-param-sex')?.value || document.getElementById('param-sex')?.value || '男';
+    var age = curYear - y + 1;
+    if (age < 1) age = 1;
+    var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    var start = sex === '男' ? '寅' : '申';
+    var startIdx = DZ.indexOf(start);
+    var newXN = DZ[((startIdx + (age - 1) * (sex === '男' ? 1 : -1)) % 12 + 12) % 12];
+    // 更新 pan 数据
+    currentPanData['行年'] = newXN;
+    currentPanData['行年详情'] = { '行年地支': newXN, '年龄': age, '起算': start };
+    // 更新行年上神
+    var td = currentPanData['天地盘'] || {};
+    currentPanData['行年详情']['行年上神'] = td[newXN] || '';
+    // 重新同步入口页
+    document.getElementById('param-birth-year').value = y;
+    // 更新显示
+    _renderInfoHTML(currentPanData);
+    Chat.addMessage('system', '出生年份已改为 ' + y + '，行年更新为 ' + newXN + '（' + age + '岁）');
+}
+
 // ====== 行年手动修改 ======
 function editXingnian(currentZhi, xnInfo) {
     var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];

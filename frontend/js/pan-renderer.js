@@ -257,4 +257,13 @@ function _renderInfoHTML(data) {
         xnEl.title = '点击修改行年地支';
         xnEl.onclick = function() { editXingnian(xn, xnInfo); };
     }
+    // 出生年份（可点击修改，联动行年）
+    const byEl = document.getElementById('info-birth-year');
+    if (byEl) {
+        const by = data["排盘参数"] ? (document.getElementById('board-param-birth-year')?.value || '--') : '--';
+        byEl.textContent = by !== '0' && by !== '' && by !== 'null' ? by : '--';
+        byEl.style.cursor = 'pointer';
+        byEl.title = '点击修改出生年份（将重新计算行年）';
+        byEl.onclick = function() { editBirthYearOnBoard(); };
+    }
 }
