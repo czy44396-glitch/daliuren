@@ -616,6 +616,10 @@
                     <button id="btn-compare" class="btn btn-primary btn-sm">对比选中</button>
                     <button id="btn-select-all" class="btn btn-sm">全选</button>
                     <span id="compare-hint" style="font-size:0.7rem;color:var(--text3);margin-left:8px;align-self:center">勾选2+案例后点击对比</span>
+                    <span style="flex:1"></span>
+                    <button id="btn-export-cases" class="btn btn-sm" title="导出全部案例为JSON文件备份">导出备份</button>
+                    <button id="btn-import-cases" class="btn btn-sm" title="从JSON文件恢复案例">导入恢复</button>
+                    <input type="file" id="import-file-input" accept=".json" style="display:none">
                 </div>
             </div>
         </div>
@@ -656,7 +660,7 @@
     <script src="/static/js/pan-renderer.js?v=17"></script>
     <script src="/static/js/chat.js?v=6"></script>
     <script src="/static/js/classics.js?v=5"></script>
-    <script src="/static/js/app.js?v=34"></script>
+    <script src="/static/js/app.js?v=35"></script>
     <script>
     // ====== PWA Service Worker 注册 + 安装提示 + 自动更新 ======
     let _installPrompt = null;

@@ -2326,6 +2326,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') confirmSave();
     });
 
+    // 案例库导出导入
+    $on('btn-export-cases', 'click', function() {
+        var allCases = [];
+        var idx = _caseList();
+        for (var i = 0; i < idx.length; i++) {
+            var c = _caseGet(idx[i].id);
+            if (c) allCases.push(c);
+        }
+        if (allCases.length === 0) { alert('案例库为空，无需导出'); return; }
+        var blob = new Blob([JSON.stringify(allCases, null, 2)], {type: 'application/json'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = '大六壬案例备份_' + new Date().toISOString().slice(0,10) + '.json';
+        a.click();
+        setTimeout(function() { URL.revokeObjectURL(url); }, 500);
+    });
+
+    $on('btn-import-cases', 'click', function() {
+        document.getElementById('import-file-input').click();
+    });
+
+    $on('import-file-input', 'change', function() {
+        var file = this.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var cases = JSON.parse(e.target.result);
+                if (!Array.isArray(cases)) { alert('文件格式错误：需要JSON数组'); return; }
+                var imported = 0;
+                cases.forEach(function(c) {
+                    if (c.id && c.pan_data) {
+                        _casePut(c);
+                        imported++;
+                    }
+                });
+                alert('成功导入 ' + imported + ' 个案例（共 ' + cases.length + ' 条数据）');
+                loadAllTags();
+                if (document.getElementById('cases-modal').style.display !== 'none') loadCaseList();
+            } catch(err) {
+                alert('文件解析失败：' + err.message);
+            }
+        };
+        reader.readAsText(file);
+        this.value = '';
+    });
+
     // 案例库弹窗
     $on('btn-close-cases', 'click', () => {
         const el = document.getElementById('cases-modal');
