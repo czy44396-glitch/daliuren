@@ -548,6 +548,7 @@ function loadCaseList() {
             '<button class="btn btn-sm case-load" data-id="'+c.id+'">加载</button>' +
             '<button class="btn btn-sm case-btn-notes" data-id="'+c.id+'">笔记</button>' +
             '<button class="btn btn-sm case-rename" data-id="'+c.id+'" data-name="'+c.name.replace(/"/g,'&quot;')+'">改名</button>' +
+            '<button class="btn btn-sm case-tags-edit" data-id="'+c.id+'">改标签</button>' +
             '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>';
         list.appendChild(div);
     });
@@ -604,6 +605,102 @@ function loadCaseList() {
         var caseObj = _caseGet(b.dataset.id);
         if (caseObj) openNotesEditor(b.dataset.id, caseObj);
     }); });
+
+    // 改标签按钮
+    list.querySelectorAll('.case-tags-edit').forEach(function(b) { b.addEventListener('click', function(e) {
+        e.stopPropagation();
+        _showTagEditor(b.dataset.id);
+    }); });
+}
+
+// 案例标签编辑弹窗
+function _showTagEditor(caseId) {
+    var caseObj = _caseGet(caseId);
+    if (!caseObj) return;
+    var curTags = caseObj.tags || [];
+
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.8);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fefcf7;border-radius:12px;padding:18px;max-width:400px;width:90vw';
+    box.onclick = function(e) { e.stopPropagation(); };
+
+    var title = document.createElement('div');
+    title.textContent = '修改标签 — ' + caseObj.name;
+    title.style.cssText = 'font-size:15px;color:#1a1614;margin-bottom:12px;font-family:"Noto Serif SC",serif;letter-spacing:1px';
+    box.appendChild(title);
+
+    // 当前标签
+    var curDiv = document.createElement('div');
+    curDiv.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;min-height:24px';
+    curDiv.id = 'tag-editor-current';
+    box.appendChild(curDiv);
+
+    // 自定义输入
+    var inputRow = document.createElement('div');
+    inputRow.style.cssText = 'display:flex;gap:6px;margin-bottom:12px';
+    var input = document.createElement('input');
+    input.type = 'text'; input.placeholder = '输入新标签...';
+    input.style.cssText = 'flex:1;padding:6px 10px;border:1px solid #e0d5c1;border-radius:6px;font-size:13px;font-family:inherit;color:#3a3632';
+    var addBtn = document.createElement('button');
+    addBtn.textContent = '添加';
+    addBtn.style.cssText = 'padding:6px 12px;background:rgba(58,54,50,0.06);border:1px solid rgba(58,54,50,0.15);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;color:#3a3632';
+    inputRow.appendChild(input); inputRow.appendChild(addBtn);
+    box.appendChild(inputRow);
+
+    // 已有标签建议
+    loadAllTags();
+    var sugDiv = document.createElement('div');
+    sugDiv.style.cssText = 'display:flex;gap:4px;flex-wrap:wrap;max-height:80px;overflow-y:auto';
+    _allTags.forEach(function(t) { if (curTags.indexOf(t.name) < 0) {
+        var tb = document.createElement('span');
+        tb.textContent = t.name; tb.style.cssText = 'padding:2px 8px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.1);border-radius:10px;cursor:pointer;font-size:11px;color:#6b6560;white-space:nowrap';
+        tb.onclick = function() { if (curTags.indexOf(t.name) < 0) { curTags.push(t.name); renderCurTags(); } };
+        sugDiv.appendChild(tb);
+    }});
+    box.appendChild(sugDiv);
+
+    function renderCurTags() {
+        curDiv.innerHTML = curTags.map(function(t) {
+            return '<span style="display:inline-flex;align-items:center;gap:2px;padding:2px 10px;background:rgba(199,62,58,0.1);border:1px solid rgba(199,62,58,0.3);border-radius:12px;font-size:12px;color:#C73E3A;white-space:nowrap">'+t+'<span style="cursor:pointer;font-weight:bold;margin-left:3px" data-tag="'+t+'" class="tag-editor-remove">&times;</span></span>';
+        }).join('');
+        curDiv.querySelectorAll('.tag-editor-remove').forEach(function(s) {
+            s.onclick = function() { curTags = curTags.filter(function(x) { return x !== s.dataset.tag; }); renderCurTags(); };
+        });
+    }
+    renderCurTags();
+
+    addBtn.onclick = function() {
+        var t = input.value.trim(); if (!t || curTags.indexOf(t) >= 0) return;
+        curTags.push(t); renderCurTags(); input.value = '';
+    };
+    input.onkeydown = function(e) { if (e.key === 'Enter') { addBtn.click(); } };
+
+    // 按钮行
+    var btnRow = document.createElement('div');
+    btnRow.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;margin-top:12px';
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消'; cancelBtn.style.cssText = 'padding:6px 16px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.12);border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;color:#6b6560';
+    cancelBtn.onclick = function() { overlay.remove(); };
+    var saveBtn = document.createElement('button');
+    saveBtn.textContent = '保存'; saveBtn.style.cssText = 'padding:6px 20px;background:#b83a2e;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:600';
+    saveBtn.onclick = function() {
+        var finalTags = curTags.length > 0 ? curTags : ['其他'];
+        caseObj.tags = finalTags; caseObj.category = finalTags[0];
+        _casePut(caseObj);
+        loadAllTags();
+        buildFilterBar();
+        loadCaseList();
+        overlay.remove();
+    };
+    btnRow.appendChild(cancelBtn); btnRow.appendChild(saveBtn);
+    box.appendChild(btnRow);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    setTimeout(function() { input.focus(); }, 100);
 }
 
 async function compareCases() {
