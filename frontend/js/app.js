@@ -960,10 +960,12 @@ function openNotesEditor(caseId, caseData) {
     document.getElementById('notes-case-label').textContent = '✎ 个人解读笔记 — ' + _notesCaseName;
 
     var editor = document.getElementById('notes-editor');
+    var outcomeEl = document.getElementById('notes-outcome');
     var statusEl = document.getElementById('notes-status');
     statusEl.textContent = '';
     statusEl.className = '';
     editor.value = caseData.personal_notes || '';
+    outcomeEl.value = caseData.actual_outcome || '';
 
     // 在左面板渲染完整盘面（天地盘 + 四课 + 三传）
     var panData = caseData.pan_data;
@@ -1123,11 +1125,13 @@ function hideNotesModal() {
 function savePersonalNotes(silent) {
     if (!_notesCaseId) return;
     var notes = document.getElementById('notes-editor').value;
+    var outcome = document.getElementById('notes-outcome')?.value || '';
     var statusEl = document.getElementById('notes-status');
     if (!silent) { statusEl.textContent = '保存中...'; statusEl.className = ''; }
     var caseObj = _caseGet(_notesCaseId);
     if (!caseObj) { statusEl.textContent = '保存失败：案例不存在'; return; }
     caseObj.personal_notes = notes;
+    caseObj.actual_outcome = outcome;
     caseObj.personal_notes_updated = new Date().toISOString();
     _casePut(caseObj);
     if (silent) {
@@ -2578,6 +2582,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     $on('save-modal', 'click', (e) => {
         if (e.target.id === 'save-modal') hideSaveModal();
+    });
+
+    // 反推分析按钮
+    $on('btn-iterate-case', 'click', async function() {
+        if (!_notesCaseId) return;
+        var caseObj = _caseGet(_notesCaseId);
+        if (!caseObj) { alert('案例数据丢失'); return; }
+        var outcome = document.getElementById('notes-outcome')?.value.trim();
+        if (!outcome) { alert('请先在「实际结果」框中填写已知发生的事实'); return; }
+        // 先保存
+        savePersonalNotes(true);
+        // 关闭笔记弹窗
+        hideNotesModal();
+        // 在聊天中显示反推分析
+        Chat.addMessage('system', '正在进行反推分析...');
+        try {
+            var resp = await fetch('/api/reflections/iterate', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({
+                    pan_data: caseObj.pan_data,
+                    question: '请分析此课盘',
+                    ai_response: caseObj.personal_notes || '',
+                    actual_outcome: outcome,
+                    user_notes: document.getElementById('notes-editor')?.value || ''
+                })
+            });
+            var r = await resp.json();
+            if (r.success) {
+                Chat.onChatResponse(r.analysis, {skill_id:'iterate',skill_name:'自反迭代反推'});
+                Chat.addMessage('system', '反推分析完成。以上分析已保存，后续解读将参考此教训。');
+            } else {
+                Chat.onError(r.error || '反推分析失败');
+            }
+        } catch(e) { Chat.onError(e.message); }
     });
 
     // 笔记编辑器弹窗

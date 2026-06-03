@@ -1713,6 +1713,100 @@ async def api_analyze_reflections(request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@app.post("/api/reflections/iterate")
+async def api_iterate_case(request: Request):
+    """
+    单案例自反迭代反推：
+    用户提供已知发生的实际结果，AI 对比原始解读，分析差距，输出教训。
+    """
+    try:
+        data = await request.json()
+        pan_data = data.get("pan_data")
+        original_question = data.get("question", "")
+        original_response = data.get("ai_response", "")
+        actual_outcome = data.get("actual_outcome", "").strip()
+        user_notes = data.get("user_notes", "").strip()
+
+        if not actual_outcome:
+            return JSONResponse({"success": False, "error": "请提供已知的实际结果"}, status_code=400)
+
+        from liuren.jiepan import _build_pan_context, _call_llm
+
+        ctx_parts = ["""## 自反迭代反推任务
+
+你是一位大六壬专家，正在进行一次「反推训练」。以下是某个课盘的原始解读和后来实际发生的结果。请认真对比分析："""]
+
+        if pan_data:
+            pan_ctx = _build_pan_context(pan_data)
+            ctx_parts.append(f"\n### 原始课盘\n{pan_ctx}")
+
+        ctx_parts.append(f"""
+### 用户原始问题
+{original_question or '（未记录）'}
+
+### AI 原始解读
+{original_response[:1500] or '（未记录）'}
+
+### 用户个人解读笔记
+{user_notes[:1000] or '（无）'}
+
+### 实际发生的结果（已知事实）
+{actual_outcome}
+
+---
+
+## 请完成以下分析：
+
+### 1. 差距分析
+AI 原始解读与实际结果之间，哪些说对了？哪些说错了？请逐条对比。
+
+### 2. 遗漏的信号
+回顾课盘，有哪些课象信号本应指向实际结果，但被忽略了？
+
+### 3. 误判原因
+AI 为什么会出现这些偏差？是某个神将的解读习惯问题，还是课式判断的逻辑漏洞？
+
+### 4. 改进规则
+针对这次反推，提炼出 2-3 条具体的解读规则修正。每条规则用一句话，格式为：
+- **规则 X**：当发现……时，应先考虑……而非……
+
+### 5. 自反总结
+用一段话总结从这次反推中学到的核心教训。
+""")
+
+        full_ctx = "\n".join(ctx_parts)
+        system = """你是一位严谨的大六壬专家，正在进行反推训练。你的目标是诚实地面对自己的错误，从中提炼出可操作的改进规则。
+
+请保持：
+- 诚实：不掩饰错误，直接点出问题
+- 具体：不泛泛而谈，引用课盘中的具体地支、神将、六亲
+- 建设性：每个错误都要配上改进规则
+- 简洁：每段不超过150字"""
+
+        response = _call_llm(system, [{"role": "user", "content": full_ctx}])
+
+        # 保存迭代记录
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        iteration = {
+            "id": ts,
+            "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "type": "iterate",
+            "question": original_question,
+            "ai_response": original_response[:2000],
+            "actual_outcome": actual_outcome,
+            "user_notes": user_notes[:2000],
+            "analysis": response,
+        }
+        ref_dir = get_reflections_dir()
+        with open(ref_dir / f"iterate_{ts}.json", "w", encoding="utf-8") as f:
+            json.dump(iteration, f, ensure_ascii=False, indent=2)
+
+        return {"success": True, "analysis": response, "id": ts}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @app.post("/api/ganzhi-search")
 async def search_by_ganzhi(request: Request):
     """根据四柱干支反查公历日期。支持年/月/日/时柱逐级筛选。"""
