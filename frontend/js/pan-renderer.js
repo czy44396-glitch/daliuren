@@ -247,11 +247,14 @@ function _renderInfoHTML(data) {
     if (jqEl) {
         jqEl.innerHTML = `${jqData["当前节气"]||'—'} → ${jqData["下一节气"]||'—'} · ${sj["昼夜"]||''}`;
     }
-    // 行年
+    // 行年（可点击修改）
     const xnEl = document.getElementById('info-xingnian');
     if (xnEl) {
         const xn = data["行年"] || '';
         const xnInfo = data["行年详情"] || {};
-        xnEl.textContent = xn ? `${xn}（${xnInfo["年龄"]||''}岁）` : '--';
+        xnEl.textContent = xn ? xn + '（' + (xnInfo['年龄']||'') + '岁）' : '--';
+        xnEl.style.cursor = 'pointer';
+        xnEl.title = '点击修改行年地支';
+        xnEl.onclick = function() { editXingnian(xn, xnInfo); };
     }
 }

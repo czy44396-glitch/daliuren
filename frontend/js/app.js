@@ -1730,6 +1730,70 @@ function exportAsImage() {
     }
 }
 
+// ====== 行年手动修改 ======
+function editXingnian(currentZhi, xnInfo) {
+    var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(26,22,20,0.85);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fefcf7;border-radius:12px;padding:16px;max-width:320px;width:90vw;text-align:center';
+    box.onclick = function(e) { e.stopPropagation(); };
+
+    var title = document.createElement('div');
+    title.textContent = '修改行年地支';
+    title.style.cssText = 'font-size:16px;color:#1a1614;margin-bottom:4px;font-family:"Noto Serif SC",serif;letter-spacing:2px';
+    box.appendChild(title);
+
+    var ageInfo = document.createElement('div');
+    ageInfo.textContent = '当前：' + (currentZhi || '--') + '（' + ((xnInfo||{}).年龄||'') + '岁）';
+    ageInfo.style.cssText = 'font-size:12px;color:#9c8b72;margin-bottom:12px';
+    box.appendChild(ageInfo);
+
+    var grid = document.createElement('div');
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(4,1fr);gap:6px';
+    DZ.forEach(function(z) {
+        var btn = document.createElement('button');
+        btn.textContent = z;
+        var isCurrent = z === currentZhi;
+        btn.style.cssText = 'padding:10px;font-size:20px;font-weight:700;border-radius:8px;cursor:pointer;font-family:"Noto Serif SC",serif;border:2px solid ' +
+            (isCurrent ? '#b83a2e' : '#e0d5c1') + ';background:' + (isCurrent ? 'rgba(184,58,46,0.08)' : '#fff') +
+            ';color:' + (isCurrent ? '#b83a2e' : '#3a3632');
+        btn.onclick = function() {
+            if (!currentPanData) return;
+            currentPanData['行年'] = z;
+            // 更新行年详情
+            var xnD = currentPanData['行年详情'] || {};
+            xnD['行年地支'] = z;
+            currentPanData['行年详情'] = xnD;
+            // 重新渲染信息栏
+            var xnEl = document.getElementById('info-xingnian');
+            if (xnEl) {
+                xnEl.textContent = z + '（' + (xnD['年龄']||'') + '岁）';
+                xnEl.style.cursor = 'pointer';
+                xnEl.title = '点击修改行年地支';
+                xnEl.onclick = function() { editXingnian(z, xnD); };
+            }
+            // 更新行年上神
+            var td = currentPanData['天地盘'] || {};
+            if (xnD) xnD['行年上神'] = td[z] || '';
+            overlay.remove();
+        };
+        grid.appendChild(btn);
+    });
+    box.appendChild(grid);
+
+    var cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '取消';
+    cancelBtn.style.cssText = 'margin-top:10px;padding:6px 24px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.12);color:#6b6560;border-radius:6px;cursor:pointer;font-size:13px;font-family:inherit';
+    cancelBtn.onclick = function() { overlay.remove(); };
+    box.appendChild(cancelBtn);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+}
+
 // ====== 符文盘点击编辑（年月日时手动输入） ======
 function attachRuneEdit() {
     document.querySelectorAll('#time-portal .rune-disc').forEach(disc => {
