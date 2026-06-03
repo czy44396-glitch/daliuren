@@ -351,9 +351,73 @@ async function shiftTime(dir) {
     updateShiftTimeLabel();
     await doUpdatePan();
 }
-// ====== 案例 localStorage 存储（云端文件系统不持久） ======
+// ====== 案例存储：Supabase云端 + localStorage本地缓存 ======
+var _SB_URL = '', _SB_KEY = '';
 const _CASE_KEY = 'liuren_case_index';
 const _CASE_PFX = 'liuren_case_';
+
+// 初始化时加载 Supabase 配置
+function _initStorage() {
+    fetch('/api/config').then(function(r) { return r.json(); }).then(function(cfg) {
+        if (cfg.supabase_url && cfg.supabase_key) {
+            _SB_URL = cfg.supabase_url;
+            _SB_KEY = cfg.supabase_key;
+            console.log('[storage] Supabase 已配置，启用云端同步');
+            _syncFromCloud();
+        }
+    }).catch(function() {});
+}
+
+// 从云端拉取案例到本地
+function _syncFromCloud() {
+    if (!_SB_URL) return;
+    fetch(_SB_URL + '/rest/v1/cases?select=*', {
+        headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY }
+    }).then(function(r) { return r.json(); }).then(function(rows) {
+        if (!Array.isArray(rows)) return;
+        var idx = [];
+        rows.forEach(function(row) {
+            var c = { id: row.id, name: row.name, tags: JSON.parse(row.tags||'[]'), created: row.created,
+                pan_data: JSON.parse(row.pan_data||'{}'), personal_notes: row.personal_notes||'',
+                personal_notes_updated: row.personal_notes_updated||'' };
+            localStorage.setItem(_CASE_PFX + c.id, JSON.stringify(c));
+            idx.unshift(_caseEntry(c));
+        });
+        _caseSaveIdx(idx);
+        console.log('[storage] 云端同步完成: ' + rows.length + ' 条');
+        loadAllTags();
+        try { if (document.getElementById('cases-modal').style.display !== 'none') loadCaseList(); } catch(e) {}
+    }).catch(function(e) { console.warn('[storage] 云端同步失败，使用本地缓存', e); });
+}
+
+// 云端保存单条案例
+function _cloudPut(c) {
+    if (!_SB_URL) return;
+    var body = JSON.stringify({
+        id: c.id, name: c.name, tags: JSON.stringify(c.tags||[]), created: c.created,
+        pan_data: JSON.stringify(c.pan_data||{}), personal_notes: c.personal_notes||'',
+        personal_notes_updated: c.personal_notes_updated||''
+    });
+    fetch(_SB_URL + '/rest/v1/cases?id=eq.' + encodeURIComponent(c.id), {
+        method: 'PATCH', headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY,
+            'Content-Type': 'application/json', 'Prefer': 'return=minimal' }, body: body
+    }).catch(function() {}); // 失败静默，本地已保存
+    // 也尝试 upsert（如果记录不存在则插入）
+    fetch(_SB_URL + '/rest/v1/cases', {
+        method: 'POST', headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY,
+            'Content-Type': 'application/json', 'Prefer': 'resolution=merge-duplicates' }, body: body
+    }).catch(function() {});
+}
+
+// 云端删除单条案例
+function _cloudDel(id) {
+    if (!_SB_URL) return;
+    fetch(_SB_URL + '/rest/v1/cases?id=eq.' + encodeURIComponent(id), {
+        method: 'DELETE', headers: { 'apikey': _SB_KEY, 'Authorization': 'Bearer ' + _SB_KEY }
+    }).catch(function() {});
+}
+
+// ---- 本地存储函数（本地为主，云端为辅） ----
 function _caseList() { try { return JSON.parse(localStorage.getItem(_CASE_KEY) || '[]'); } catch(e) { return []; } }
 function _caseSaveIdx(list) { localStorage.setItem(_CASE_KEY, JSON.stringify(list)); }
 function _caseGet(id) { try { return JSON.parse(localStorage.getItem(_CASE_PFX + id)); } catch(e) { return null; } }
@@ -363,8 +427,9 @@ function _casePut(c) {
     for (var i = 0; i < idx.length; i++) { if (idx[i].id === c.id) { idx[i] = _caseEntry(c); hit = true; break; } }
     if (!hit) idx.unshift(_caseEntry(c));
     _caseSaveIdx(idx);
+    _cloudPut(c);  // 后台同步到云端
 }
-function _caseDel(id) { localStorage.removeItem(_CASE_PFX + id); _caseSaveIdx(_caseList().filter(function(e) { return e.id !== id; })); }
+function _caseDel(id) { localStorage.removeItem(_CASE_PFX + id); _caseSaveIdx(_caseList().filter(function(e) { return e.id !== id; })); _cloudDel(id); }
 function _caseEntry(c) { return {id:c.id,name:c.name,tags:c.tags||[c.category||'其他'],created:c.created,has_notes:!!(c.personal_notes&&c.personal_notes.trim()),note_updated:c.personal_notes_updated||''}; }
 
 let _saveTags = [];    // 当前正在编辑的标签列表
@@ -2455,4 +2520,5 @@ document.addEventListener('DOMContentLoaded', () => {
     try { connectWebSocket(); } catch(e) { console.warn('[app] WebSocket 连接失败:', e); }
     try { loadAllTags(); } catch(e) { console.warn('[app] 预加载标签失败:', e); }
     try { attachRuneEdit(); } catch(e) { console.warn('[app] rune-edit 初始化失败:', e); }
+    try { _initStorage(); } catch(e) { console.warn('[app] 云端存储初始化失败:', e); }
 });

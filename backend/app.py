@@ -58,6 +58,15 @@ async def index():
     return FileResponse(str(frontend_dir / "index.html"))
 
 
+@app.get("/api/config")
+async def api_config():
+    """返回客户端配置（Supabase 等）"""
+    return {
+        "supabase_url": os.environ.get("SUPABASE_URL", ""),
+        "supabase_key": os.environ.get("SUPABASE_ANON_KEY", ""),
+    }
+
+
 # ========== 认证辅助 ==========
 
 def _get_user_id(request: Request) -> str | None:
