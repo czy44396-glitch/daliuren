@@ -214,8 +214,20 @@ const Chat = {
             if (r.success) {
                 msgEl.style.display = '';
                 msgEl.style.color = '#2d8a56';
-                msgEl.textContent = '反馈已提交，感谢！';
-                setTimeout(() => { document.getElementById('feedback-modal').style.display = 'none'; }, 1500);
+                // 如果是纠错反馈，触发 AI 重新解读
+                if (!isAccurate && correction) {
+                    msgEl.textContent = '纠错已提交，AI 正在重新解读...';
+                    document.getElementById('feedback-modal').style.display = 'none';
+                    // 构建重新解读的提示
+                    var reAsk = '【纠错重解】我之前对你的解读有误，请根据以下纠正重新分析：\n\n' +
+                        '❌ 错误点：' + correction + '\n\n' +
+                        '原问题：' + (this._lastQuestion || '请分析此课盘') + '\n\n' +
+                        '请重新解读，这次要特别注意上述错误点，给出正确的分析。';
+                    this.sendMessage(reAsk);
+                } else {
+                    msgEl.textContent = '反馈已提交，感谢！';
+                    setTimeout(function() { document.getElementById('feedback-modal').style.display = 'none'; }, 1500);
+                }
             } else {
                 msgEl.style.display = '';
                 msgEl.style.color = '#b83a2e';
