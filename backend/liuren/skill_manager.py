@@ -2,14 +2,20 @@
 大六壬 Skill 管理系统
 - 加载/解析 skill markdown 文件
 - 关键词匹配自动路由
-- 热重载
+- 热重载（带缓存，文件修改时自动刷新）
 """
 import re
 import json
+import time
 from pathlib import Path
 from typing import Optional
 
 SKILLS_DIR = Path(__file__).parent.parent / "skills"
+
+# 模块级缓存
+_skills_cache: list[dict] | None = None
+_skills_cache_time: float = 0.0
+_CACHE_TTL: float = 30.0  # 秒
 
 
 def _parse_frontmatter(text: str) -> tuple[dict, str]:
@@ -32,16 +38,43 @@ def _parse_frontmatter(text: str) -> tuple[dict, str]:
     return meta, body
 
 
-def load_all_skills() -> list[dict]:
-    """加载所有 skill 文件"""
+def _check_skills_modified() -> float | None:
+    """检查 skills 目录是否有文件修改。返回最新修改时间。"""
+    if not SKILLS_DIR.exists():
+        return None
+    latest = 0.0
+    for fp in SKILLS_DIR.glob("*.md"):
+        mtime = fp.stat().st_mtime
+        if mtime > latest:
+            latest = mtime
+    return latest if latest > 0 else None
+
+
+def load_all_skills(force: bool = False) -> list[dict]:
+    """加载所有 skill 文件。默认缓存30秒，force=True 强制刷新。"""
+    global _skills_cache, _skills_cache_time
+    now = time.time()
+
+    if not force and _skills_cache is not None and (now - _skills_cache_time) < _CACHE_TTL:
+        # 检查文件是否有更新
+        latest = _check_skills_modified()
+        if latest is not None and latest <= _skills_cache_time:
+            return _skills_cache
+
     skills = []
     if not SKILLS_DIR.exists():
+        _skills_cache = skills
+        _skills_cache_time = now
         return skills
+
     for fp in sorted(SKILLS_DIR.glob("*.md")):
         meta, body = _parse_frontmatter(fp.read_text(encoding="utf-8"))
         meta["_file"] = str(fp.name)
         meta["_content"] = body
         skills.append(meta)
+
+    _skills_cache = skills
+    _skills_cache_time = now
     return skills
 
 

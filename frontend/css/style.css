@@ -7,6 +7,15 @@
 /* ===== 公共基础 ===== */
 * { margin:0; padding:0; box-sizing:border-box; }
 
+/* 全局模态遮罩（非 #board-app 内的 modals） */
+.modal {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    display: flex; align-items: center; justify-content: center;
+}
+
 /* ===== 水墨设计变量 ===== */
 #time-portal {
     --paper: #f5f0e6;
@@ -1048,7 +1057,7 @@
 :root {
     --bg: #f7f3eb; --card: #fffef9; --border: #e5dcc8; --border-s: #c4b393;
     --text: #2c2416; --text2: #5e5540; --text3: #9c8b72;
-    --red: #8b1a2b; --gold: #b8860b;
+    --red: #8b1a2b; --gold: #b8860b; --bronze: #9c8b72;
     --font-serif: 'Noto Serif SC', 'SimSun', serif;
     --font-sans: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
     --radius: 10px; --sh: 0 2px 16px rgba(0,0,0,0.04);
@@ -1294,6 +1303,27 @@
     text-align: center;
     font-weight: 600;
 }
+
+/* ===== 神煞面板 ===== */
+#board-app #shashen-container {
+    margin-top: 12px; padding: 10px 14px;
+    background: #fdfaf5; border-radius: 8px;
+    border: 1px solid #e5dcc8; max-width: 660px;
+}
+#board-app #shashen-container .section-title {
+    margin-bottom: 6px; font-size: 0.8rem; color: var(--text2);
+}
+#board-app .ss-cat {
+    font-size: 0.7rem; color: var(--red); font-family: var(--font-serif);
+    font-weight: 600; margin: 8px 0 4px; padding-bottom: 2px;
+    border-bottom: 1px dotted #e0d5c1;
+}
+#board-app .ss-row {
+    display: inline-flex; align-items: center; gap: 4px;
+    margin: 2px 12px 2px 0; font-size: 0.75rem;
+}
+#board-app .ss-name { color: var(--text3); font-family: var(--font-sans); }
+#board-app .ss-zhi { font-weight: 700; font-family: var(--font-serif); font-size: 1rem; }
 #board-app .method-badge {
     display: inline-block;
     background: var(--red);
@@ -1691,45 +1721,6 @@
 
 /* 个人解读笔记编辑器 */
 /* 笔记左右分屏 */
-#board-app #notes-modal .notes-split-container {
-    width: 95vw; max-width: 1100px; max-height: 90vh;
-    background: var(--card); border-radius: var(--radius);
-    box-shadow: 0 8px 40px rgba(0,0,0,0.15);
-    display: flex; flex-direction: column; overflow: hidden;
-}
-#board-app .notes-split-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 12px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0;
-}
-#board-app .notes-split-body {
-    display: flex; flex: 1; min-height: 0; overflow: hidden;
-}
-#board-app .notes-split-left {
-    flex: 1; min-width: 0; overflow: auto;
-    padding: 10px; background: #faf7f0;
-    border-right: 1px solid var(--border);
-}
-#board-app .notes-split-left .notes-pan-placeholder {
-    display: flex; align-items: center; justify-content: center;
-    height: 100%; color: #9c8b72; font-size: 14px;
-}
-#board-app .notes-split-left svg { width: 100%; height: auto; display: block; }
-#board-app .notes-split-right {
-    width: 380px; flex-shrink: 0;
-    display: flex; flex-direction: column; padding: 12px;
-    overflow-y: auto;
-}
-#board-app #notes-editor {
-    width: 100%; min-height: 280px; padding: 12px;
-    border: 1px solid #e0d5c1; border-radius: 8px;
-    font-family: 'Noto Serif SC', serif; font-size: 0.85rem; line-height: 1.8;
-    resize: vertical; background: #fefcf7; color: #2c2416;
-    transition: border-color 0.2s;
-}
-#board-app #notes-editor:focus {
-    outline: none; border-color: #C73E3A;
-    box-shadow: 0 0 0 2px rgba(199,62,58,0.1);
-}
 #board-app #notes-status { font-size: 0.7rem; color: var(--text3); transition: color 0.3s; }
 #board-app #notes-status.saved { color: #5a8a4a; }
 #board-app .case-has-notes {
@@ -2295,12 +2286,6 @@
     #board-app #save-modal .modal-content,
     #board-app #history-modal .modal-content,
     #board-app #cases-modal .modal-content,
-    #board-app #notes-modal .notes-split-container { width: 95vw; max-height: 90vh; }
-
-    /* 笔记分屏在移动端上下堆叠 */
-    #board-app .notes-split-body { flex-direction: column; }
-    #board-app .notes-split-left { flex: none; height: 40vh; border-right: none; border-bottom: 1px solid var(--border); }
-    #board-app .notes-split-right { width: 100%; flex: 1; }
 
     /* 典籍抽屉全宽 */
     #classics-drawer { width: 100vw; max-width: 100vw; }
@@ -2326,4 +2311,143 @@
     #board-app .btn { padding: 4px 8px; font-size: 0.7rem; }
     #board-app .btn-sm { padding: 3px 6px; font-size: 0.65rem; }
     #board-app #chat-panel { max-height: 240px; }
+}
+
+/* ============================================
+   新版笔记编辑器 — Notion 风格块编辑 / 思维导图 / 白板
+   ============================================ */
+
+/* 强制覆盖通用 modal-content 的高度限制 */
+#notes-modal-v2 .modal-content {
+    max-height: 92vh !important;
+    height: 92vh;
+    width: 96vw;
+    max-width: 1100px;
+}
+
+/* 块编辑器容器 */
+#notes-v2-blocks {
+    font-family: 'Noto Serif SC', 'Microsoft YaHei', serif;
+    color: #1a1614; line-height: 1.8; outline: none;
+}
+/* scroll-wrap 绝对定位（top/bottom 确定高度），滚轮原生滚动 */
+#notes-v2-scroll-wrap {
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+}
+
+/* 各类块样式 */
+.nb-block { outline: none; padding: 4px 8px; margin: 2px 0; border-radius: 6px; border-left: 3px solid transparent; transition: background 0.15s, border-color 0.15s; min-height: 28px; cursor: text; }
+.nb-block:hover { background: rgba(58,54,50,0.02); }
+.nb-focused { background: rgba(184,58,46,0.03) !important; border-left-color: rgba(184,58,46,0.15) !important; }
+
+.nb-h1 { font-size: 1.5rem; font-weight: 700; color: #1a1614; padding: 8px 8px 2px; border-bottom: 1px solid #e8e0d0; margin-bottom: 8px; }
+.nb-h2 { font-size: 1.2rem; font-weight: 700; color: #3a3632; padding: 6px 8px 2px; margin-top: 8px; }
+.nb-h3 { font-size: 1.05rem; font-weight: 600; color: #6b6560; padding: 4px 8px 2px; margin-top: 6px; }
+.nb-p  { font-size: 0.9rem; color: #3a3632; margin: 2px 0; }
+.nb-li { font-size: 0.9rem; color: #3a3632; padding-left: 8px; display: flex; gap: 6px; align-items: baseline; }
+.nb-bullet { flex-shrink: 0; color: #b83a2e; font-weight: bold; font-size: 0.8rem; width: 14px; text-align: center; user-select: none; pointer-events: none; }
+.nb-bullet-num { color: #6b6560; }
+.nb-quote { font-size: 0.9rem; color: #6b6560; font-style: italic; border-left: 3px solid #d0c8b0; padding: 6px 12px; margin: 4px 0; background: rgba(58,54,50,0.02); }
+.nb-hr { border: none; border-top: 1px dashed #e0d5c1; margin: 12px 0; padding: 0; height: 0; }
+.nb-empty { min-height: 18px; padding: 2px 8px; color: #9c8b72; caret-color: #1a1614; }
+.nb-empty:focus { color: #3a3632; }
+
+/* 原生列表（execCommand 产出）在编辑器内的样式 */
+#notes-v2-blocks ul { padding-left: 20px; margin: 4px 0; list-style: none; }
+#notes-v2-blocks ul li { position: relative; padding: 2px 0 2px 4px; }
+#notes-v2-blocks ul li::before { content: '•'; color: #b83a2e; font-weight: bold; position: absolute; left: -14px; }
+#notes-v2-blocks ol { padding-left: 20px; margin: 4px 0; }
+#notes-v2-blocks ol li { padding: 2px 0; color: #3a3632; }
+#notes-v2-blocks blockquote { border-left: 3px solid #d0c8b0; padding: 6px 12px; margin: 4px 0; background: rgba(58,54,50,0.02); color: #6b6560; font-style: italic; }
+
+/* 格式化工具栏 */
+.nb-toolbar {
+    display: flex; gap: 2px; padding: 4px 10px; margin-bottom: 2px;
+    background: #faf7f0; border-bottom: 1px solid #e8e0d0; flex-shrink: 0;
+    align-items: center;
+}
+.nb-toolbar button {
+    width: 28px; height: 26px; border: 1px solid transparent; border-radius: 4px;
+    background: transparent; cursor: pointer; font-size: 12px; color: #6b6560;
+    display: flex; align-items: center; justify-content: center; font-family: inherit;
+    transition: background 0.15s, border-color 0.15s;
+}
+.nb-toolbar button:hover { background: rgba(58,54,50,0.06); border-color: #e0d5c1; }
+.nb-toolbar button.nb-tb-active { background: rgba(184,58,46,0.1); border-color: rgba(184,58,46,0.3); color: #b83a2e; }
+.nb-toolbar .nb-tb-sep { width: 1px; height: 18px; background: #e0d5c1; margin: 0 4px; }
+
+/* 添加块按钮 */
+.nb-add-block { padding: 6px 12px; margin: 4px 0; border-radius: 6px; color: #9c8b72; font-size: 0.8rem; cursor: pointer; transition: background 0.15s; text-align: center; border: 1px dashed transparent; }
+.nb-add-block:hover { background: rgba(58,54,50,0.03); border-color: #e0d5c1; color: #6b6560; }
+
+/* 视图切换按钮激活态 */
+#notes-v2-view-bar .btn.active { background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.08); color: #1a1614; }
+
+/* 思维导图 / 白板 画布 */
+#notes-v2-mm-canvas { cursor: grab; }
+#notes-v2-mm-canvas:active { cursor: grabbing; }
+#notes-v2-wb-canvas { cursor: crosshair; }
+
+/* 代码块 */
+.nb-code-block {
+    background: #f5f0e6; border: 1px solid #e0d5c1; border-radius: 8px;
+    padding: 12px 16px; margin: 8px 0; font-family: 'Consolas','Source Code Pro',monospace;
+    font-size: 0.8rem; line-height: 1.6; white-space: pre-wrap; overflow-x: auto;
+    color: #1a1614;
+}
+
+/* 白板右键菜单 */
+.wb-ctx-menu { animation: wbCtxIn 0.12s ease-out; }
+@keyframes wbCtxIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+.wb-ctx-menu div { transition: background 0.1s; }
+
+/* ===== 白板工具栏提示 ===== */
+#notes-v2-whiteboard-panel::after {
+    content: '双击添加节点 · 拖拽移动 · Shift+拖拽连线 · 滚轮缩放';
+    position: absolute; bottom: 8px; right: 12px;
+    font-size: 9px; color: #c0b8a0; pointer-events: none;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    #notes-modal-v2 .modal-content { width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; border-radius: 0; }
+    #notes-v2-blocks { padding: 12px 16px; }
+    .nb-h1 { font-size: 1.2rem; }
+    .nb-h2 { font-size: 1rem; }
+    /* 移动端笔记编辑器的左右面板堆叠 */
+    #notes-modal-v2 .modal-content > div[style*="display:flex"]:nth-child(2) {
+        flex-direction: column !important;
+    }
+    #notes-v2-pan-preview {
+        width: 100% !important; min-width: unset !important;
+        max-height: 30vh; border-right: none !important;
+        border-bottom: 2px solid #e8e0d0;
+    }
+    #notes-v2-editor-panel { height: 45vh; min-height: 250px; }
+    /* 移动端视图标签仅图标 */
+    #notes-v2-btn-editor, #notes-v2-btn-mindmap, #notes-v2-btn-whiteboard {
+        font-size: 14px !important; padding: 4px 6px !important;
+    }
+    #notes-v2-btn-editor::after, #notes-v2-btn-mindmap::after, #notes-v2-btn-whiteboard::after {
+        content: none;
+    }
+    /* 移动端底部操作栏换行 */
+    #notes-modal-v2 .modal-content > div:last-child {
+        flex-wrap: wrap !important; gap: 6px !important;
+    }
+    #notes-v2-outcome { min-width: 100% !important; }
+    #notes-modal-v2 .modal-content > div:last-child button { flex: 1; }
+
+    /* 案例库标签筛选移动端 */
+    #cases-filter { flex-wrap: wrap; gap: 3px; }
+    #cases-filter .btn { font-size: 0.7rem; padding: 3px 7px; }
+    .case-item { flex-wrap: wrap; gap: 2px; }
+    .case-item .case-name { flex: 1 1 100%; }
+    .case-item .case-date { font-size: 0.65rem; }
+
+    /* 工具栏缩小 */
+    #board-app #toolbar-actions .btn { font-size: 0.65rem; padding: 3px 6px; }
+    .nb-toolbar button { width: 24px; height: 22px; font-size: 10px; }
+    .nb-toolbar .nb-tb-sep { margin: 0 2px; }
 }

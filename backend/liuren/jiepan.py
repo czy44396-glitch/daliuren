@@ -121,7 +121,7 @@ def _call_llm(system_prompt: str, messages: list[dict]) -> str:
                 "x-api-key": api_key,
                 "anthropic-version": "2023-06-01",
             },
-            timeout=120,
+            timeout=60,
         )
         data = resp.json()
 

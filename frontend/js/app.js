@@ -44,7 +44,10 @@ function _toolbarClick(e) {
 function openMyNotes() {
     if (!currentLoadedCaseId) return;
     var caseObj = _caseGet(currentLoadedCaseId);
-    if (caseObj) openNotesEditor(currentLoadedCaseId, caseObj);
+    if (caseObj) {
+        if (typeof NotesEditor !== 'undefined') NotesEditor.open(currentLoadedCaseId, caseObj);
+        else openNotesEditor(currentLoadedCaseId, caseObj);
+    }
 }
 function exportCurrentPan() {
     if (!currentPanData) { alert('请先排盘'); return; }
@@ -264,6 +267,7 @@ async function doPaipan() {
     container.innerHTML = '<div class="loading-overlay"><div class="loading-spinner"></div><span>排盘中...</span></div>';
     currentPanData = null; compareContext = null;
     currentLoadedCaseId = null; updateMyNotesBtn(null);
+    Chat.clear(); Chat.showWelcome();
     try {
         const resp = await fetch('/api/paipan', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(params)});
         const result = await resp.json();
@@ -422,7 +426,15 @@ function _caseList() { try { return JSON.parse(localStorage.getItem(_CASE_KEY) |
 function _caseSaveIdx(list) { localStorage.setItem(_CASE_KEY, JSON.stringify(list)); }
 function _caseGet(id) { try { return JSON.parse(localStorage.getItem(_CASE_PFX + id)); } catch(e) { return null; } }
 function _casePut(c) {
-    localStorage.setItem(_CASE_PFX + c.id, JSON.stringify(c));
+    try {
+        localStorage.setItem(_CASE_PFX + c.id, JSON.stringify(c));
+    } catch(e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+            alert('案例库存储空间已满！请导出备份后清理旧案例。');
+        }
+        console.error('[case] 保存失败:', e);
+        return;
+    }
     var idx = _caseList(); var hit = false;
     for (var i = 0; i < idx.length; i++) { if (idx[i].id === c.id) { idx[i] = _caseEntry(c); hit = true; break; } }
     if (!hit) idx.unshift(_caseEntry(c));
@@ -603,7 +615,10 @@ function loadCaseList() {
     list.querySelectorAll('.case-btn-notes').forEach(function(b) { b.addEventListener('click', function(e) {
         e.stopPropagation();
         var caseObj = _caseGet(b.dataset.id);
-        if (caseObj) openNotesEditor(b.dataset.id, caseObj);
+        if (caseObj) {
+            if (typeof NotesEditor !== 'undefined') NotesEditor.open(b.dataset.id, caseObj);
+            else openNotesEditor(b.dataset.id, caseObj);
+        }
     }); });
 
     // 改标签按钮
@@ -953,14 +968,49 @@ function _mergeCustomTags() {
 // ====== 个人解读笔记 ======
 let _notesCaseId = null;
 let _notesCaseName = '';
+let _notesDomain = 'general';
 
 function openNotesEditor(caseId, caseData) {
     _notesCaseId = caseId;
     _notesCaseName = caseData.name || '';
+
+    // 检测领域：推命 vs 占卜
+    var tags = caseData.tags || [];
+    var domain = 'general';
+    var domainLabel = '';
+    var domainTag = document.getElementById('notes-domain-tag');
+    var destinyKW = ['推命','命理','命盘','命运','八字','出生','本命','大运','流年'];
+    var divKW = ['占卜','占问','事占','占验','事件','预测','吉凶','卜问'];
+    for (var i = 0; i < tags.length; i++) {
+        var t = tags[i];
+        for (var j = 0; j < destinyKW.length; j++) { if (t.indexOf(destinyKW[j]) >= 0) { domain = 'destiny'; break; } }
+        if (domain === 'destiny') break;
+        for (var k = 0; k < divKW.length; k++) { if (t.indexOf(divKW[k]) >= 0) { domain = 'divination'; break; } }
+        if (domain === 'divination') break;
+    }
+    if (domain === 'destiny') {
+        domainLabel = '推命';
+        if (domainTag) { domainTag.style.display = ''; domainTag.textContent = '🔮 推命'; domainTag.style.background = 'rgba(184,58,46,0.08)'; domainTag.style.color = '#b83a2e'; }
+    } else if (domain === 'divination') {
+        domainLabel = '占卜';
+        if (domainTag) { domainTag.style.display = ''; domainTag.textContent = '🔯 占卜'; domainTag.style.background = 'rgba(45,138,86,0.08)'; domainTag.style.color = '#2d8a56'; }
+    } else {
+        if (domainTag) domainTag.style.display = 'none';
+    }
+    _notesDomain = domain;
+
     document.getElementById('notes-case-label').textContent = '✎ 个人解读笔记 — ' + _notesCaseName;
 
     var editor = document.getElementById('notes-editor');
     var outcomeEl = document.getElementById('notes-outcome');
+    // 根据领域调整实际结果占位符
+    if (domain === 'destiny') {
+        outcomeEl.placeholder = '【推命反推】已知的实际人生轨迹：此命主后来...（用于校验命盘解读）';
+    } else if (domain === 'divination') {
+        outcomeEl.placeholder = '【占卜反推】已知的实际发展结果：此事后来...（用于校验占断准确度）';
+    } else {
+        outcomeEl.placeholder = '已知的实际结果（反推用）：后来实际发生了什么？...';
+    }
     var statusEl = document.getElementById('notes-status');
     statusEl.textContent = '';
     statusEl.className = '';
@@ -1044,26 +1094,29 @@ function openNotesEditor(caseId, caseData) {
 }
 
 // 辅助：渲染天地盘到指定 SVG 元素（含四柱居中显示）
+// 辅助：渲染天地盘到指定 SVG 元素（使用全局常量，消除重复代码）
 function _renderTiandiPanSVG_to(data, svgId) {
     var svg = document.getElementById(svgId);
     if (!svg || !data) return;
+
+    var _LR = window._LR || {};
+    var DZ = _LR.DZ || ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    var DZC = _LR.DZC || {};
+    var TJS = _LR.TJS || {};
+    var TJC = _LR.TJC || {};
+    var POS = _LR.POS || {};
 
     var td = data['天地盘'] || {};
     var tj = data['十二天将'] || {};
     var dg = data['遁干'] || {};
     var xk = data['旬空'] || [];
     var sizhu = (data['时间'] || {})['四柱'] || {};
-    var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-    var DZC_map = {'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
-    var TJS_map = {'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
-    var TJC_map = {'贵人':'#7D5A3C','天空':'#7D5A3C','勾陈':'#7D5A3C','太常':'#7D5A3C','青龙':'#2d7d46','六合':'#2d7d46','白虎':'#D4A017','太阴':'#D4A017','天后':'#1a3a5c','玄武':'#1a3a5c','螣蛇':'#c94043','朱雀':'#c94043'};
-    var POS = {'巳':[0,0],'午':[0,1],'未':[0,2],'申':[0,3],'辰':[1,0],'酉':[1,3],'卯':[2,0],'戌':[2,3],'寅':[3,0],'丑':[3,1],'子':[3,2],'亥':[3,3]};
 
     var W = 660, H = 600;
     var ox = 38, oy = 28;
     var cw = 140, ch = 128, gap = 12;
 
-    var h = '<defs><marker id="ah2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#8b1a2b"/></marker></defs>';
+    var h = '<defs><marker id="ah3" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#8b1a2b"/></marker></defs>';
     h += '<rect width="'+W+'" height="'+H+'" fill="#fdfaf3" rx="4"/>';
 
     for (var i = 0; i < DZ.length; i++) {
@@ -1072,44 +1125,32 @@ function _renderTiandiPanSVG_to(data, svgId) {
         var tian = td[di] || '';
         var jiang = tj[di] || '';
         var dun = dg[tian] || '';
-        var clrDi = DZC_map[di] || '#2c2416';
-        var clrTian = DZC_map[tian] || '#2c2416';
+        var clrDi = DZC[di] || '#2c2416';
+        var clrTian = DZC[tian] || '#2c2416';
         var tianK = xk.indexOf(tian) >= 0;
         var diK = xk.indexOf(di) >= 0;
         var cx = ox + pos[1]*(cw+gap);
         var cy = oy + pos[0]*(ch+gap);
 
         h += '<rect x="'+cx+'" y="'+cy+'" width="'+cw+'" height="'+ch+'" rx="5" fill="#fefcf7" stroke="'+clrDi+'" stroke-width="2"/>';
-
-        var tjS = TJS_map[jiang] || '';
-        var tjClr = TJC_map[jiang] || '#8b1a2b';
+        var tjS = TJS[jiang] || '';
+        var tjClr = TJC[jiang] || '#8b1a2b';
         h += '<text x="'+(cx+cw/2)+'" y="'+(cy+ch/2-38)+'" font-size="11" fill="#6b5e4a" font-family="serif" text-anchor="middle">'+dun+'</text>';
         h += '<text x="'+(cx+cw/2)+'" y="'+(cy+ch/2-20)+'" font-size="18" fill="'+tjClr+'" font-family="sans-serif" font-weight="600" text-anchor="middle">'+tjS+'</text>';
-
-        if (tianK) {
-            h += '<circle cx="'+(cx+cw/2)+'" cy="'+(cy+ch/2+7)+'" r="22" fill="none" stroke="'+clrTian+'" stroke-width="1.5" stroke-dasharray="4 3"/>';
-        }
+        if (tianK) h += '<circle cx="'+(cx+cw/2)+'" cy="'+(cy+ch/2+7)+'" r="22" fill="none" stroke="'+clrTian+'" stroke-width="1.5" stroke-dasharray="4 3"/>';
         h += '<text x="'+(cx+cw/2)+'" y="'+(cy+ch/2+16)+'" font-size="28" font-weight="700" fill="'+(tianK?'#bbb':clrTian)+'" font-family="serif" text-anchor="middle">'+tian+'</text>';
-
-        if (diK) {
-            h += '<rect x="'+(cx+cw-29)+'" y="'+(cy+ch-23)+'" width="16" height="16" rx="2" fill="none" stroke="'+clrDi+'" stroke-width="1.5" stroke-dasharray="3 3"/>';
-        }
+        if (diK) h += '<rect x="'+(cx+cw-29)+'" y="'+(cy+ch-23)+'" width="16" height="16" rx="2" fill="none" stroke="'+clrDi+'" stroke-width="1.5" stroke-dasharray="3 3"/>';
         h += '<text x="'+(cx+cw-14)+'" y="'+(cy+ch-10)+'" font-size="14" font-weight="600" fill="'+(diK?'#bbb':clrDi)+'" font-family="serif" text-anchor="end">'+di+'</text>';
     }
 
     h += '<text x="'+(ox+1*(cw+gap)+cw/2)+'" y="'+(oy-10)+'" font-size="12" fill="#c4b393" font-family="serif" text-anchor="middle">南 (午)</text>';
     h += '<text x="'+(ox+2*(cw+gap)+cw/2)+'" y="'+(oy+3*(ch+gap)+ch+14)+'" font-size="12" fill="#c4b393" font-family="serif" text-anchor="middle">北 (子)</text>';
 
-    // 四柱居中显示在天地盘中央空白区
-    var cxB = ox + 1.5*(cw+gap) + cw/2;  // 盘中心 X
-    var cyB = oy + 1.5*(ch+gap) + ch/2;  // 盘中心 Y
+    var cxB = ox + 1.5*(cw+gap) + cw/2;
+    var cyB = oy + 1.5*(ch+gap) + ch/2;
     var pillars = ['年柱','月柱','日柱','时柱'];
     var szTexts = [];
-    for (var pi = 0; pi < pillars.length; pi++) {
-        var gz = sizhu[pillars[pi]] || '--';
-        szTexts.push(gz);
-    }
-    // 四柱纵向居中排列
+    for (var pi = 0; pi < pillars.length; pi++) { szTexts.push(sizhu[pillars[pi]] || '--'); }
     h += '<text x="'+cxB+'" y="'+(cyB-15)+'" font-size="13" fill="#8b1a2b" font-family="serif" font-weight="600" text-anchor="middle">'+szTexts[0]+' '+szTexts[1]+'</text>';
     h += '<text x="'+cxB+'" y="'+(cyB+8)+'" font-size="13" fill="#8b1a2b" font-family="serif" font-weight="600" text-anchor="middle">'+szTexts[2]+' '+szTexts[3]+'</text>';
     h += '<text x="'+cxB+'" y="'+(cyB+24)+'" font-size="9" fill="#9c8b72" font-family="sans-serif" text-anchor="middle">四柱</text>';
@@ -2584,19 +2625,28 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.id === 'save-modal') hideSaveModal();
     });
 
-    // 反推分析按钮
+    // 反推分析按钮（兼容新旧笔记编辑器）
     $on('btn-iterate-case', 'click', async function() {
-        if (!_notesCaseId) return;
-        var caseObj = _caseGet(_notesCaseId);
+        // 优先使用新编辑器
+        var caseId = (typeof NotesEditor !== 'undefined' && NotesEditor._caseId) ? NotesEditor._caseId : _notesCaseId;
+        if (!caseId) return;
+        var caseObj = _caseGet(caseId);
         if (!caseObj) { alert('案例数据丢失'); return; }
-        var outcome = document.getElementById('notes-outcome')?.value.trim();
+        var outcome = document.getElementById('notes-v2-outcome')?.value?.trim() || document.getElementById('notes-outcome')?.value?.trim();
         if (!outcome) { alert('请先在「实际结果」框中填写已知发生的事实'); return; }
-        // 先保存
-        savePersonalNotes(true);
+        // 先保存（新编辑器优先）
+        if (typeof NotesEditor !== 'undefined' && NotesEditor._caseId === caseId) { NotesEditor.save(); }
+        else { savePersonalNotes(true); }
         // 关闭笔记弹窗
-        hideNotesModal();
+        if (typeof NotesEditor !== 'undefined' && NotesEditor._caseId === caseId) { NotesEditor.close(); }
+        else { hideNotesModal(); }
+
+        var domain = (typeof NotesEditor !== 'undefined' && NotesEditor._caseId === caseId) ? (NotesEditor._domain || 'general') : (_notesDomain || 'general');
+        var domainLabel = domain === 'destiny' ? '推命' : (domain === 'divination' ? '占卜' : '通用');
+        var targetSkill = domain === 'destiny' ? 'mingli' : (domain === 'divination' ? 'shaoyanhe' : 'auto');
+
         // 在聊天中显示反推分析
-        Chat.addMessage('system', '正在进行反推分析...');
+        Chat.addMessage('system', '正在进行【' + domainLabel + '】反推分析...（对比原始解读与实际结果，提取教训）');
         try {
             var resp = await fetch('/api/reflections/iterate', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2605,13 +2655,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     question: '请分析此课盘',
                     ai_response: caseObj.personal_notes || '',
                     actual_outcome: outcome,
-                    user_notes: document.getElementById('notes-editor')?.value || ''
+                    user_notes: caseObj.personal_notes || '',
+                    domain: domain,
+                    skill_id: targetSkill,
                 })
             });
             var r = await resp.json();
             if (r.success) {
-                Chat.onChatResponse(r.analysis, {skill_id:'iterate',skill_name:'自反迭代反推'});
-                Chat.addMessage('system', '反推分析完成。以上分析已保存，后续解读将参考此教训。');
+                Chat.onChatResponse(r.analysis, {skill_id:'iterate_' + domain, skill_name:'自反迭代反推【' + domainLabel + '】'});
+                // 自动将反推教训保存到案例笔记
+                if (r.lessons) {
+                    var updatedCase = _caseGet(caseId);
+                    if (updatedCase) {
+                        var existing = updatedCase.personal_notes || '';
+                        var ts = new Date().toISOString().replace('T',' ').slice(0,16);
+                        updatedCase.personal_notes = existing + '\n\n---\n\n## 反推教训 (' + ts + ', ' + domainLabel + ')\n\n' + r.lessons;
+                        updatedCase.personal_notes_updated = ts;
+                        _casePut(updatedCase);
+                    }
+                }
+                Chat.addMessage('system', '【' + domainLabel + '】反推分析完成。教训已自动保存到案例笔记，并将用于优化 ' + targetSkill + ' Skill。');
             } else {
                 Chat.onError(r.error || '反推分析失败');
             }
@@ -2726,7 +2789,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const wsOk = this.ws && this.ws.readyState === WebSocket.OPEN;
         if (wsOk) {
             this.addMessage('user', msg);
-            this.ws.send(JSON.stringify({ type: 'chat', message: msg, use_personal_style: !!useStyle }));
+            this.ws.send(JSON.stringify({
+                type: 'chat',
+                message: msg,
+                skill_id: this._currentSkillId || 'auto',
+                use_personal_style: !!useStyle
+            }));
             this.addMessage('system', useStyle ? 'AI 思考中（参考你的解读风格）...' : 'AI 思考中...');
         } else {
             origSend(msg);
@@ -2734,13 +2802,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 个人风格开关提示
-    // AI 学习我的风格按钮
-    $on('btn-skill-learn', 'click', async function() {
-        // 从 localStorage 收集所有有笔记的案例
-        var idx = _caseList();
+    // AI 学习我的风格按钮 → 打开案例库，由用户勾选要学习的案例
+    $on('btn-skill-learn', 'click', function() {
+        showCases();
+        // 更新案例库提示文字
+        var hint = document.getElementById('compare-hint');
+        if (hint) {
+            hint.textContent = '勾选带笔记的案例后点「AI学习选中」开始学习';
+            hint.style.color = 'var(--text3)';
+        }
+    });
+
+    // AI学习选中 — 只学习用户勾选的案例笔记
+    $on('btn-skill-learn-selected', 'click', async function() {
+        var checked = document.querySelectorAll('.case-cb:checked');
+        var ids = Array.from(checked).map(function(cb) { return cb.value; });
+        if (ids.length === 0) {
+            var hint = document.getElementById('compare-hint');
+            hint.textContent = '请至少勾选1个带笔记的案例';
+            hint.style.color = 'var(--red)';
+            setTimeout(function() { hint.textContent = '勾选带笔记的案例后点「AI学习选中」开始学习'; hint.style.color = 'var(--text3)'; }, 2500);
+            return;
+        }
+        // 只收集勾选且有笔记的案例
         var richCases = [];
-        for (var i = 0; i < idx.length; i++) {
-            var c = _caseGet(idx[i].id);
+        for (var i = 0; i < ids.length; i++) {
+            var c = _caseGet(ids[i]);
             if (c && (c.personal_notes || c.actual_outcome)) {
                 richCases.push({
                     name: c.name, tags: c.tags, personal_notes: c.personal_notes || '',
@@ -2749,12 +2836,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         if (richCases.length === 0) {
-            Chat.addMessage('system', '案例库中没有带笔记的案例。请先保存案例并撰写个人解读笔记，AI 才能学习你的风格。');
+            var hint2 = document.getElementById('compare-hint');
+            hint2.textContent = '勾选的案例都没有个人笔记，请撰写笔记后再学习';
+            hint2.style.color = 'var(--red)';
+            setTimeout(function() { hint2.textContent = '勾选带笔记的案例后点「AI学习选中」开始学习'; hint2.style.color = 'var(--text3)'; }, 2500);
             return;
         }
-        // 获取当前选中的 skill
         var skillId = Chat._currentSkillId || 'mingli';
-        Chat.addMessage('system', '正在从 ' + richCases.length + ' 个案例笔记中学习你的解课逻辑...');
+        document.getElementById('cases-modal').style.display = 'none';
+        Chat.addMessage('system', '正在从你选中的 ' + richCases.length + ' 个案例笔记中学习你的解课逻辑...');
         try {
             var resp = await fetch('/api/skills/learn', {
                 method: 'POST', headers: {'Content-Type':'application/json'},
@@ -2762,13 +2852,126 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             var r = await resp.json();
             if (r.success) {
-                Chat.onChatResponse('## 学习完成！\n\n从 **' + r.case_count + '** 个案例笔记中提取了你的思维模式。\n\n优化版 Skill 已保存为 `' + r.saved_as + '`。\n\n---\n' + r.skill_markdown.substring(0, 3000) + '\n\n---\n\n> 完整 Skill 已保存。在 Skill 下拉菜单中选择「已学习」版本即可使用。');
+                // 从生成的 markdown 中提取 skill ID（用于编辑按钮关联）
+                var fmMatch = r.skill_markdown.match(/^---\s*\n(?:.*\n)*?id:\s*(\S+)/m);
+                var learnedSkillId = fmMatch ? fmMatch[1] : (skillId + '_learned');
+                Chat.onChatResponse('## 学习完成！\n\n从你选中的 **' + r.case_count + '** 个案例笔记中提取了你的思维模式。\n\n优化版 Skill 已保存为 `' + r.saved_as + '`。\n\n---\n' + r.skill_markdown.substring(0, 3000) + '\n\n---\n\n> 完整 Skill 已保存。在 Skill 下拉菜单中选择「已学习」版本即可使用。', { skill_id: learnedSkillId, skill_name: '已学习: ' + r.saved_as });
                 // 刷新 skill 列表
                 Chat.init();
             } else {
                 Chat.onError(r.error || '学习失败');
             }
         } catch(e) { Chat.onError(e.message); }
+    });
+
+    // ====== Skill 编辑功能 ======
+    var _skillEditFile = '';
+    var _skillEditId = '';
+
+    // 学习完成后，在聊天响应中显示编辑按钮
+    var _origChatOnChatResponse = Chat.onChatResponse;
+    Chat.onChatResponse = function(text, meta) {
+        _origChatOnChatResponse.call(this, text, meta);
+        // 如果回复中包含学习完成，添加编辑按钮
+        if (text && text.indexOf('学习完成') >= 0 && (meta && meta.skill_id)) {
+            var msgs = document.getElementById('chat-messages');
+            var lastMsg = msgs.lastElementChild;
+            if (lastMsg) {
+                var editBtn = document.createElement('button');
+                editBtn.textContent = '编辑优化 Skill';
+                editBtn.style.cssText = 'margin-top:8px;padding:6px 14px;background:rgba(184,58,46,0.06);border:1px solid rgba(184,58,46,0.25);border-radius:6px;color:#b83a2e;cursor:pointer;font-family:inherit;font-size:12px';
+                editBtn.onclick = function() { openSkillEditor(meta.skill_id); };
+                lastMsg.appendChild(editBtn);
+            }
+        }
+    };
+
+    // 编辑当前选中的 Skill
+    $on('btn-skill-edit', 'click', function() {
+        var skillId = Chat._currentSkillId;
+        if (!skillId || skillId === 'auto') {
+            // 列出可编辑的 learned skills
+            fetch('/api/skills/list').then(function(r) { return r.json(); }).then(function(data) {
+                if (!data.success || !data.skills) return;
+                var learned = data.skills.filter(function(s) { return s.id && s.id.indexOf('_learned') >= 0; });
+                if (learned.length === 0) {
+                    Chat.addMessage('system', '还没有已学习的 Skill。请先在案例库中勾选带笔记的案例，点击「学习我的风格」。');
+                    return;
+                }
+                openSkillEditor(learned[0].id);
+            }).catch(function() {});
+            return;
+        }
+        openSkillEditor(skillId);
+    });
+
+    function openSkillEditor(skillId) {
+        _skillEditId = skillId;
+        document.getElementById('skill-edit-modal').style.display = 'flex';
+        document.getElementById('skill-edit-textarea').value = '加载中...';
+        document.getElementById('skill-edit-status').textContent = '';
+
+        fetch('/api/skills/' + encodeURIComponent(skillId) + '/raw').then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                _skillEditFile = data.file_name;
+                document.getElementById('skill-edit-title').textContent = '编辑 Skill';
+                document.getElementById('skill-edit-file').textContent = data.file_name;
+                document.getElementById('skill-edit-textarea').value = data.raw_markdown;
+                document.getElementById('skill-edit-status').textContent = '已加载';
+                document.getElementById('skill-edit-status').style.color = '#2d8a56';
+            } else {
+                document.getElementById('skill-edit-textarea').value = '加载失败：' + (data.error || '');
+                document.getElementById('skill-edit-status').textContent = '加载失败';
+                document.getElementById('skill-edit-status').style.color = '#b83a2e';
+            }
+        }).catch(function(e) {
+            document.getElementById('skill-edit-textarea').value = '网络错误：' + e.message;
+            document.getElementById('skill-edit-status').textContent = '网络错误';
+            document.getElementById('skill-edit-status').style.color = '#b83a2e';
+        });
+    }
+
+    function saveSkillEdit() {
+        var content = document.getElementById('skill-edit-textarea').value.trim();
+        if (!content) { alert('内容不能为空'); return; }
+        var statusEl = document.getElementById('skill-edit-status');
+        statusEl.textContent = '保存中...';
+        statusEl.style.color = 'var(--bronze)';
+
+        fetch('/api/skills/' + encodeURIComponent(_skillEditId) + '/edit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: content })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                statusEl.textContent = '已保存';
+                statusEl.style.color = '#2d8a56';
+                // 刷新 skill 列表
+                Chat.init();
+                setTimeout(function() {
+                    statusEl.textContent = '';
+                }, 2000);
+            } else {
+                statusEl.textContent = '保存失败：' + (data.error || '');
+                statusEl.style.color = '#b83a2e';
+            }
+        }).catch(function(e) {
+            statusEl.textContent = '网络错误：' + e.message;
+            statusEl.style.color = '#b83a2e';
+        });
+    }
+
+    $on('btn-skill-edit-save', 'click', saveSkillEdit);
+    $on('btn-skill-edit-close', 'click', function() {
+        document.getElementById('skill-edit-modal').style.display = 'none';
+    });
+
+    // Ctrl+S 在编辑器中保存
+    document.getElementById('skill-edit-textarea')?.addEventListener('keydown', function(e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            saveSkillEdit();
+        }
     });
 
     $on('chk-personal-style', 'change', function() {

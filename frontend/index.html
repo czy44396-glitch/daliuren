@@ -14,7 +14,7 @@
     <link rel="apple-touch-icon" href="/static/icon-192.png">
     <meta name="mobile-web-app-capable" content="yes">
 
-    <link rel="stylesheet" href="/static/css/style.css?v=32">
+    <link rel="stylesheet" href="/static/css/style.css?v=42">
 </head>
 <body>
 
@@ -314,6 +314,7 @@
 
                 <div id="sike-container" class="card-section"></div>
                 <div id="sanchuan-container" class="card-section"></div>
+                <div id="shashen-container" class="card-section"></div>
             </main>
 
             <!-- 分析笔记视图（独立页面） -->
@@ -381,7 +382,8 @@
                         <input type="checkbox" id="chk-personal-style"> 参考我的解读风格
                     </label>
                     <span style="flex:1"></span>
-                    <button id="btn-skill-learn" class="btn btn-sm" style="font-size:10px;background:rgba(184,58,46,0.04);border:1px solid rgba(184,58,46,0.2);color:#b83a2e" title="从案例库笔记中学习你的解课逻辑">AI 学习我的风格</button>
+                    <button id="btn-skill-learn" class="btn btn-sm" style="font-size:10px;background:rgba(184,58,46,0.04);border:1px solid rgba(184,58,46,0.2);color:#b83a2e" title="从案例库笔记中学习你的解课逻辑">学习我的风格</button>
+                    <button id="btn-skill-edit" class="btn btn-sm" style="font-size:10px;background:rgba(58,54,50,0.04);border:1px solid rgba(58,54,50,0.15);color:#6b6560" title="查看/编辑已学习的 Skill">编辑Skill</button>
                     <span id="style-hint" style="color:var(--bronze);font-size:0.6rem;display:none"></span>
                 </div>
             </section>
@@ -517,7 +519,7 @@
 
         <!-- AI 解读反馈弹窗 -->
         <div id="feedback-modal" class="modal" style="display:none">
-            <div class="modal-content" style="width:400px;max-width:92vw">
+            <div class="modal-content" style="width:520px;max-width:94vw;max-height:85vh;overflow-y:auto">
                 <div class="modal-header">
                     <span class="modal-title">反 馈 纠 错</span>
                     <button id="btn-close-feedback" class="btn btn-sm">&times;</button>
@@ -525,14 +527,16 @@
                 <div style="padding:16px">
                     <div class="form-row">
                         <label style="font-size:13px">AI 解读是否正确？</label>
-                        <div style="display:flex;gap:8px;margin-top:4px">
-                            <button id="fb-accurate" class="btn btn-sm" style="flex:1;border-color:#2d8a56;color:#2d8a56">准确</button>
-                            <button id="fb-inaccurate" class="btn btn-sm" style="flex:1;border-color:#b83a2e;color:#b83a2e">不准确</button>
+                        <div style="display:flex;gap:8px;margin-top:4px;margin-bottom:6px">
+                            <button id="fb-accurate" class="btn btn-sm" style="flex:1;border-color:#2d8a56;color:#2d8a56">整体准确</button>
+                            <button id="fb-inaccurate" class="btn btn-sm" style="flex:1;border-color:#b83a2e;color:#b83a2e">有不准确处</button>
                         </div>
                     </div>
+                    <!-- 逐段标注区域 -->
+                    <div class="form-row" id="fb-sections-row" style="display:none"></div>
                     <div class="form-row" id="fb-correction-row" style="display:none">
-                        <label>哪里不对？请具体说明</label>
-                        <textarea id="fb-correction" rows="3" placeholder="例如：三传说错了，初传应该是..."></textarea>
+                        <label>纠正说明（针对标注 ✗ 的段落）</label>
+                        <textarea id="fb-correction" rows="3" placeholder="请具体说明哪里有误..."></textarea>
                     </div>
                     <div class="form-row">
                         <label>实际结果（可选）</label>
@@ -568,34 +572,70 @@
         </div>
 
         <!-- 个人解读笔记 — 左右分屏 -->
-        <div id="notes-modal" class="modal" style="display:none">
-            <div class="modal-content notes-split-container">
-                <div class="notes-split-header">
-                    <span class="modal-title" id="notes-case-label">✎ 个人解读笔记</span>
-                    <button id="btn-close-notes" class="btn btn-sm">&times;</button>
-                </div>
-                <div class="notes-split-body">
-                    <!-- 左：盘面预览 -->
-                    <div class="notes-split-left" id="notes-pan-preview">
-                        <div class="notes-pan-placeholder">加载盘中...</div>
+        <!-- ========== 新版笔记编辑器（Notion 风格 — 块编辑 / 思维导图 / 白板） ========== -->
+        <div id="notes-modal-v2" class="modal" style="display:none">
+            <div class="modal-content" style="width:96vw;max-width:1100px;height:92vh;max-height:92vh;display:flex;flex-direction:column;border-radius:12px;overflow:hidden">
+                <!-- 顶部栏 -->
+                <div class="notes-v2-header" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #e8e0d0;background:#faf7f0;flex-shrink:0">
+                    <span id="notes-v2-case-label" style="font-size:15px;font-weight:700;color:#1a1614;font-family:'Noto Serif SC',serif"></span>
+                    <span id="notes-v2-domain-tag" style="font-size:0.65rem;padding:1px 8px;border-radius:10px;display:none"></span>
+                    <span style="flex:1"></span>
+                    <!-- 视图切换 -->
+                    <div id="notes-v2-view-bar" style="display:flex;gap:2px;background:#f0ebe0;border-radius:8px;padding:2px">
+                        <button id="notes-v2-btn-editor" class="btn btn-sm active" style="border-radius:6px;padding:4px 10px;font-size:11px" onclick="NotesEditor.switchView('editor')">📝 笔记编辑</button>
+                        <button id="notes-v2-btn-mindmap" class="btn btn-sm" style="border-radius:6px;padding:4px 10px;font-size:11px" onclick="NotesEditor.switchView('mindmap')">🧠 思维导图</button>
+                        <button id="notes-v2-btn-whiteboard" class="btn btn-sm" style="border-radius:6px;padding:4px 10px;font-size:11px" onclick="NotesEditor.switchView('whiteboard')">🎨 白板</button>
                     </div>
-                    <!-- 右：笔记编辑器 -->
-                    <div class="notes-split-right">
-                        <textarea id="notes-editor" placeholder="在此写入你的个人解盘逻辑、分析思路、心得体悟...
+                    <span id="notes-v2-view-label" style="font-size:10px;color:var(--bronze);min-width:50px;text-align:center">笔记编辑</span>
+                    <button id="notes-v2-btn-close" class="btn btn-sm" onclick="NotesEditor.close()">&times;</button>
+                </div>
 
-系统将在后续解读类似课盘时参考你的笔记风格和分析框架。"
-                            style="width:100%;height:50%;min-height:180px;padding:14px;border:1px solid #e0d5c1;border-radius:8px;font-family:'Noto Serif SC',serif;font-size:0.9rem;line-height:1.9;resize:none;background:#fefcf7;color:#2c2416;"></textarea>
-                        <textarea id="notes-outcome" placeholder="已知的实际结果（反推用）：后来实际发生了什么？..."
-                            style="width:100%;height:25%;min-height:80px;padding:12px;border:1px solid #d0c8b0;border-radius:8px;font-family:'Noto Serif SC',serif;font-size:0.85rem;line-height:1.7;resize:none;background:#fefaf5;color:#6b5e4a;margin-top:8px;"></textarea>
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-shrink:0">
-                            <span id="notes-status" style="font-size:0.7rem;color:var(--text3)"></span>
-                            <div style="display:flex;gap:8px">
-                                <button id="btn-cancel-notes" class="btn btn-sm">取消</button>
-                                <button id="btn-iterate-case" class="btn btn-sm" style="background:rgba(184,58,46,0.06);border:1px solid rgba(184,58,46,0.25);color:#b83a2e" title="基于实际结果进行反推分析">反推分析</button>
-                                <button id="btn-save-notes" class="btn btn-primary btn-sm">保存笔记</button>
+                <!-- 主体：左盘面 + 右编辑区 -->
+                <div style="display:flex;flex:1;min-height:0">
+                    <!-- 左面板：盘面预览 -->
+                    <div style="width:280px;min-width:200px;border-right:1px solid #e8e0d0;background:#fdfaf3;overflow-y:auto;flex-shrink:0;padding:10px" id="notes-v2-pan-preview">
+                        <div class="notes-pan-placeholder" style="text-align:center;color:#9c8b72;padding:30px 0">加载盘中...</div>
+                    </div>
+
+                    <!-- 右面板：编辑器 -->
+                    <div style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden">
+                        <!-- 编辑器视图：绝对定位确保滚动容器高度确定 -->
+                        <div id="notes-v2-editor-panel" style="flex:1;display:flex;flex-direction:column;min-height:0;position:relative">
+                            <div class="nb-toolbar" id="nb-toolbar" style="flex-shrink:0;position:relative;z-index:2">
+                                <button title="加粗" onmousedown="event.preventDefault();NotesEditor._tbApplyFormat('**')" data-marker="**"><b>B</b></button>
+                                <button title="斜体" onmousedown="event.preventDefault();NotesEditor._tbApplyFormat('*')" data-marker="*"><i>I</i></button>
+                                <button title="下划线" onmousedown="event.preventDefault();NotesEditor._tbApplyFormat('__')" data-marker="__"><u>U</u></button>
+                                <button title="代码" onmousedown="event.preventDefault();NotesEditor._tbApplyFormat('`')" data-marker="`">&lt;/&gt;</button>
+                                <span class="nb-tb-sep"></span>
+                                <button title="二级标题" onmousedown="event.preventDefault();NotesEditor._tbInsertBlockMarker('##')">H2</button>
+                                <button title="三级标题" onmousedown="event.preventDefault();NotesEditor._tbInsertBlockMarker('###')">H3</button>
+                                <button title="列表" onmousedown="event.preventDefault();NotesEditor._tbInsertBlockMarker('-')">•</button>
+                                <button title="引用" onmousedown="event.preventDefault();NotesEditor._tbInsertBlockMarker('> ')">❝</button>
+                                <span class="nb-tb-sep"></span>
+                                <button title="分隔线" onmousedown="event.preventDefault();NotesEditor._tbInsertBlockMarker('---')">—</button>
+                            </div>
+                            <!-- 绝对定位滚动区：top:34px 留出工具栏空间，bottom:0 填满剩余 -->
+                            <div id="notes-v2-scroll-wrap" style="position:absolute;top:34px;left:0;right:0;bottom:0;overflow-y:auto;-webkit-overflow-scrolling:touch">
+                                <div id="notes-v2-blocks" contenteditable="true" style="min-height:100%;padding:24px 32px"></div>
                             </div>
                         </div>
+                        <!-- 思维导图视图 -->
+                        <div id="notes-v2-mindmap-panel" style="display:none;flex:1;position:relative;overflow:hidden">
+                            <canvas id="notes-v2-mm-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+                        </div>
+                        <!-- 白板视图 -->
+                        <div id="notes-v2-whiteboard-panel" style="display:none;flex:1;position:relative;overflow:hidden">
+                            <canvas id="notes-v2-wb-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
+                        </div>
                     </div>
+                </div>
+
+                <!-- 底部栏：实际结果 + 操作 -->
+                <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid #e8e0d0;background:#faf7f0;flex-shrink:0">
+                    <textarea id="notes-v2-outcome" placeholder="实际结果（反推用）..." style="flex:1;min-height:36px;max-height:48px;padding:6px 10px;border:1px solid #d0c8b0;border-radius:6px;font-family:'Noto Serif SC',serif;font-size:12px;resize:none;background:#fff;color:#3a3632"></textarea>
+                    <span id="notes-v2-status" style="font-size:0.7rem;color:var(--text3);white-space:nowrap"></span>
+                    <button class="btn btn-sm" style="background:rgba(184,58,46,0.06);border:1px solid rgba(184,58,46,0.25);color:#b83a2e;white-space:nowrap" onclick="NotesEditor.iterate()">🔄 反推分析</button>
+                    <button class="btn btn-primary btn-sm" style="white-space:nowrap" onclick="NotesEditor.save()">💾 保存</button>
                 </div>
             </div>
         </div>
@@ -620,14 +660,30 @@
                 <div id="cases-list"></div>
                 <div id="cases-footer">
                     <button id="btn-compare" class="btn btn-primary btn-sm">对比选中</button>
+                    <button id="btn-skill-learn-selected" class="btn btn-sm" style="background:rgba(184,58,46,0.04);border:1px solid rgba(184,58,46,0.2);color:#b83a2e" title="从勾选的案例笔记中学习你的解课逻辑">AI学习选中</button>
                     <button id="btn-select-all" class="btn btn-sm">全选</button>
-                    <span id="compare-hint" style="font-size:0.7rem;color:var(--text3);margin-left:8px;align-self:center">勾选2+案例后点击对比</span>
+                    <span id="compare-hint" style="font-size:0.7rem;color:var(--text3);margin-left:8px;align-self:center">勾选带笔记的案例后点「AI学习选中」</span>
                     <span style="flex:1"></span>
                     <button id="btn-export-cases" class="btn btn-sm" title="导出全部案例为JSON文件备份">导出备份</button>
                     <button id="btn-import-cases" class="btn btn-sm" title="从JSON文件恢复案例">导入恢复</button>
                     <input type="file" id="import-file-input" accept=".json" style="display:none">
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ========== Skill 编辑弹窗 ========== -->
+    <div id="skill-edit-modal" class="modal" style="display:none">
+        <div class="modal-content" style="max-width:800px;width:95vw;max-height:90vh;display:flex;flex-direction:column">
+            <div class="modal-header">
+                <span class="modal-title" id="skill-edit-title">编辑 Skill</span>
+                <span id="skill-edit-file" style="font-size:0.7rem;color:var(--bronze);margin-left:12px"></span>
+                <span style="flex:1"></span>
+                <button id="btn-skill-edit-save" class="btn btn-sm" style="background:#b83a2e;color:#fff;margin-right:4px">保存</button>
+                <button id="btn-skill-edit-close" class="btn btn-sm">×</button>
+            </div>
+            <textarea id="skill-edit-textarea" style="flex:1;min-height:400px;padding:14px;font-family:'Noto Serif SC',serif,'Microsoft YaHei',monospace;font-size:13px;line-height:1.7;border:1px solid #e0d5c1;border-radius:8px;background:#fefcf7;color:#1a1614;resize:vertical;white-space:pre-wrap;overflow-y:auto" spellcheck="false"></textarea>
+            <div id="skill-edit-status" style="font-size:0.75rem;color:var(--text3);margin-top:8px;text-align:right"></div>
         </div>
     </div>
 
@@ -663,10 +719,11 @@
 
     <script src="/static/js/particles.js?v=5"></script>
     <script src="/static/js/params.js?v=5"></script>
-    <script src="/static/js/pan-renderer.js?v=19"></script>
-    <script src="/static/js/chat.js?v=7"></script>
+    <script src="/static/js/pan-renderer.js?v=21"></script>
+    <script src="/static/js/chat.js?v=10"></script>
+    <script src="/static/js/notes-editor.js?v=8"></script>
     <script src="/static/js/classics.js?v=5"></script>
-    <script src="/static/js/app.js?v=41"></script>
+    <script src="/static/js/app.js?v=45"></script>
     <script>
     // ====== PWA Service Worker 注册 + 安装提示 + 自动更新 ======
     let _installPrompt = null;

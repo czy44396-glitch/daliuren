@@ -3,10 +3,14 @@
 """
 
 import json
+import re
 import traceback
 import os
 from datetime import datetime
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
@@ -16,7 +20,8 @@ from liuren.paipan import paipan
 from liuren.jiepan import chat_interpret
 from liuren.skill_manager import (
     load_all_skills, match_skill, get_skill_by_id,
-    inject_skill_context, get_reflections_dir
+    inject_skill_context, get_reflections_dir,
+    _parse_frontmatter
 )
 from liuren.auth import (
     register_user, login_user, wechat_login, qq_login,
@@ -908,6 +913,9 @@ async def ws_chat(websocket: WebSocket):
                 response = chat_interpret(current_pan, effective_msg, history, personal_style_ctx)
                 history.append({"role": "user", "content": user_msg})
                 history.append({"role": "assistant", "content": response})
+                # 限制历史为最近6轮（12条消息），防止内存泄漏
+                if len(history) > 12:
+                    history = history[-12:]
 
                 # 消耗配额
                 if ws_user_id == "guest":
@@ -1594,6 +1602,66 @@ async def api_get_skill(skill_id: str):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+@app.get("/api/skills/{skill_id}/raw")
+async def api_get_skill_raw(skill_id: str):
+    """获取 skill 原始 markdown 文件内容（供编辑用）"""
+    try:
+        skills_dir = Path(__file__).parent / "skills"
+        # 查找包含该 skill_id 的文件
+        file_path = None
+        for fp in skills_dir.glob("*.md"):
+            meta, body = _parse_frontmatter(fp.read_text(encoding="utf-8"))
+            if meta.get("id") == skill_id:
+                file_path = fp
+                break
+        if not file_path:
+            return JSONResponse({"success": False, "error": "Skill 文件不存在"}, status_code=404)
+        raw = file_path.read_text(encoding="utf-8")
+        return {"success": True, "skill_id": skill_id, "file_name": str(file_path.name), "raw_markdown": raw}
+    except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.post("/api/skills/{skill_id}/edit")
+async def api_edit_skill(skill_id: str, request: Request):
+    """保存用户编辑后的 skill 内容"""
+    try:
+        data = await request.json()
+        new_content = data.get("content", "").strip()
+        if not new_content:
+            return JSONResponse({"success": False, "error": "内容不能为空"}, status_code=400)
+
+        skills_dir = Path(__file__).parent / "skills"
+        file_path = None
+        for fp in skills_dir.glob("*.md"):
+            meta, body = _parse_frontmatter(fp.read_text(encoding="utf-8"))
+            if meta.get("id") == skill_id:
+                file_path = fp
+                break
+
+        if not file_path:
+            return JSONResponse({"success": False, "error": "Skill 文件不存在"}, status_code=404)
+
+        # 如果内容没有 frontmatter，从原文件保留
+        if not re.match(r'^---\s*\n', new_content):
+            original_meta = _parse_frontmatter(file_path.read_text(encoding="utf-8"))[0]
+            from datetime import datetime
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            fm_lines = []
+            for k, v in original_meta.items():
+                if k == 'trigger' and isinstance(v, list):
+                    fm_lines.append(f"{k}: [{', '.join(v)}]")
+                else:
+                    fm_lines.append(f"{k}: {v}")
+            new_content = "---\n" + "\n".join(fm_lines) + "\n---\n\n" + new_content
+
+        file_path.write_text(new_content, encoding="utf-8")
+        return {"success": True, "message": f"Skill 已保存: {file_path.name}"}
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 @app.post("/api/skills/route")
 async def api_route_skill(request: Request):
     """根据用户问题自动匹配 skill"""
@@ -1715,7 +1783,6 @@ async def api_skill_learn(request: Request):
         )
 
         # 保存学习的 skill 到文件
-        import re
         # 提取或构造 frontmatter
         fm_match = re.match(r'^---\s*\n(.*?)\n---', response, re.DOTALL)
         if not fm_match:
@@ -1753,9 +1820,141 @@ version: learned
 
 # ========== 自反迭代 API ==========
 
+async def _auto_correct_skill(skill_id: str, correction: str, question: str, ai_response: str, section_feedback: list, wrong_count: int) -> dict | None:
+    """
+    根据用户纠错反馈，自动更新对应 Skill 的修正规则。
+    区分推命（mingli）和占卜（shaoyanhe/zhanbu）领域。
+    """
+    try:
+        from liuren.skill_manager import get_skill_by_id
+
+        skill = get_skill_by_id(skill_id)
+        if not skill:
+            # 尝试找到基础 skill（去掉 _learned 后缀）
+            base_id = skill_id.split("_learned")[0]
+            skill = get_skill_by_id(base_id)
+        if not skill:
+            print(f"[auto-correct] Skill 未找到: {skill_id}")
+            return None
+
+        base_id = skill.get("id", skill_id).split("_learned")[0]
+        domain = skill.get("domain", "general")
+        skill_name = skill.get("name", skill_id)
+        skill_content = skill.get("_content", "")
+        skill_file = skill.get("_file", "")
+
+        # 确定目标文件：优先更新 _learned 版本
+        skills_dir = Path(__file__).parent / "skills"
+        learned_file = skills_dir / f"{base_id}_learned.md"
+        target_file = learned_file if learned_file.exists() else (skills_dir / skill_file if skill_file else None)
+        if not target_file or not target_file.exists():
+            # 回退到原始 skill 文件
+            target_file = skills_dir / f"{base_id}.md"
+        if not target_file.exists():
+            print(f"[auto-correct] Skill 文件不存在: {base_id}")
+            return None
+
+        # 读取目标文件内容
+        current_raw = target_file.read_text(encoding="utf-8")
+
+        # 构建错误段落信息
+        wrong_parts = ""
+        if section_feedback:
+            wrong_items = [s for s in section_feedback if not s.get("is_accurate", True)]
+            if wrong_items:
+                wrong_parts = "**标记为错误的段落**：\n"
+                for i, w in enumerate(wrong_items[:5]):
+                    wrong_parts += f"- 段落{i+1}：{w.get('text', '')[:200]}\n"
+
+        domain_hint = ""
+        if domain == "destiny" or "命" in skill_name or "mingli" in base_id:
+            domain_hint = "\n> 注意：这是**推命**领域。修正规则应侧重于命局判断、大运流年、六亲格局等推命特有的分析逻辑。"
+        elif "占" in skill_name or "zhanbu" in base_id or "shaoyanhe" in base_id:
+            domain_hint = "\n> 注意：这是**占卜**领域。修正规则应侧重于事占判断、吉凶应期、神煞克应等占卜特有的分析逻辑。"
+
+        prompt = f"""# 任务：Skill 纠错自学习
+
+## 当前 Skill
+- **名称**：{skill_name}
+- **领域**：{domain}{domain_hint}
+
+## 用户纠错内容
+**用户问题**：{question}
+**AI 原回复（部分）**：{ai_response[:1500]}
+**用户纠正**：{correction}
+{wrong_parts}
+
+## 现有 Skill 规则（尾部）
+{skill_content[-2000:] if skill_content else '（新 Skill）'}
+
+---
+
+## 要求
+
+请分析用户指出的错误，生成 **3-5 条反推修正规则**，追加到 Skill 的「反推修正规则」章节中。
+
+每条修正规则格式：
+```
+### 修正规则 N：{简短标题}
+- **原推理**：AI 原本的分析逻辑是什么
+- **用户纠正**：用户指出错在哪里
+- **应改为**：正确的分析方法应该是什么
+- **适用场景**：什么情况下要特别注意避免此错误
+```
+
+### 约束
+1. 用中文输出
+2. 规则要具体，不要泛泛而谈
+3. 引用用户纠正的原文
+4. 如果是推命领域，规则要关联到九步流程的具体步骤
+5. 如果是占卜领域，规则要关联到占断心法
+6. 不要推翻整个 Skill，只追加修正规则
+7. 如果已有「反推修正规则」章节，追加到末尾；否则新建该章节
+
+输出完整的更新后 Skill Markdown（包含原有内容 + 新增的修正规则）。"""
+
+        from liuren.jiepan import _call_llm
+        response = _call_llm(
+            "你是一位大六壬专家，负责根据用户纠错反馈持续优化 Skill 规则。请认真分析错误并生成具体的修正规则。",
+            [{"role": "user", "content": prompt}]
+        )
+
+        # 提取修正规则部分（如果 LLM 返回了完整 skill，提取新增部分）
+        # 简单策略：如果返回内容超过原内容的 80%，可能是完整替换；否则是增量
+        if len(response) > len(current_raw) * 0.8:
+            # LLM 很可能返回了完整 skill，直接保存
+            new_content = response
+            # 确保有 frontmatter
+            if not new_content.strip().startswith("---"):
+                # 从原文件复制 frontmatter
+                fm_match = re.match(r'^(---\s*\n.*?\n---\s*\n)', current_raw, re.DOTALL)
+                if fm_match:
+                    new_content = fm_match.group(1) + "\n" + new_content
+        else:
+            # 增量更新：追加到原文件
+            separator = "\n\n---\n\n" if not current_raw.endswith("\n") else "\n---\n\n"
+            new_content = current_raw + separator + response
+
+        # 保存
+        target_file.write_text(new_content, encoding="utf-8")
+        print(f"[auto-correct] Skill 已更新: {target_file.name}")
+
+        return {
+            "updated_file": str(target_file.name),
+            "domain": domain,
+            "base_skill": base_id,
+            "rules_added": True,
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        print(f"[auto-correct] 失败: {e}")
+        return None
+
+
 @app.post("/api/reflections/save")
 async def api_save_reflection(request: Request):
-    """保存用户反馈（自反记录）"""
+    """保存用户反馈（自反记录），并自动触发 Skill 修正"""
     try:
         data = await request.json()
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -1769,13 +1968,34 @@ async def api_save_reflection(request: Request):
             "user_correction": data.get("correction", ""),
             "actual_outcome": data.get("actual_outcome", ""),
             "pan_summary": data.get("pan_summary", {}),
+            "section_feedback": data.get("section_feedback", []),
+            "wrong_count": data.get("wrong_count", 0),
         }
         ref_dir = get_reflections_dir()
         ref_file = ref_dir / f"{ts}.json"
         with open(ref_file, "w", encoding="utf-8") as f:
             json.dump(reflection, f, ensure_ascii=False, indent=2)
-        return {"success": True, "id": ts}
+
+        # 如果有纠错内容，自动触发 Skill 修正
+        correction = data.get("correction", "").strip()
+        skill_id = data.get("skill_id", "")
+        auto_correct_result = None
+        if correction and skill_id:
+            auto_correct_result = await _auto_correct_skill(
+                skill_id=skill_id,
+                correction=correction,
+                question=data.get("question", ""),
+                ai_response=data.get("ai_response", ""),
+                section_feedback=data.get("section_feedback", []),
+                wrong_count=data.get("wrong_count", 0),
+            )
+
+        result = {"success": True, "id": ts}
+        if auto_correct_result:
+            result["auto_correct"] = auto_correct_result
+        return result
     except Exception as e:
+        traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
@@ -1856,8 +2076,10 @@ async def api_analyze_reflections(request: Request):
 @app.post("/api/reflections/iterate")
 async def api_iterate_case(request: Request):
     """
-    单案例自反迭代反推：
+    单案例自反迭代反推（区分推命/占卜领域）：
     用户提供已知发生的实际结果，AI 对比原始解读，分析差距，输出教训。
+    推命侧重命局判断、大运流年、六亲格局；
+    占卜侧重事占判断、吉凶应期、神煞克应。
     """
     try:
         data = await request.json()
@@ -1866,13 +2088,43 @@ async def api_iterate_case(request: Request):
         original_response = data.get("ai_response", "")
         actual_outcome = data.get("actual_outcome", "").strip()
         user_notes = data.get("user_notes", "").strip()
+        domain = data.get("domain", "general")  # "destiny" | "divination" | "general"
+        skill_id = data.get("skill_id", "")
 
         if not actual_outcome:
             return JSONResponse({"success": False, "error": "请提供已知的实际结果"}, status_code=400)
 
         from liuren.jiepan import _build_pan_context, _call_llm
 
-        ctx_parts = ["""## 自反迭代反推任务
+        # 领域专用提示
+        domain_instructions = {
+            "destiny": """## 推命领域反推
+
+你正在进行**推命反推**。重点对比：
+1. **命局判断**：日干五行气质、课体大局判断是否准确？
+2. **三传流向**：少年→中年→晚年运势曲线与实际人生轨迹的偏差
+3. **六亲判断**：父母/配偶/子女/事业的关系判断是否吻合
+4. **格局高低**：上中下等格局的判断与实际成就的差距
+5. **关键年份**：应期的推断与实际情况的时间差
+
+每条改进规则应关联到推命九步流程的具体步骤（S1-S9）。""",
+
+            "divination": """## 占卜领域反推
+
+你正在进行**占卜反推**。重点对比：
+1. **吉凶判断**：对事件吉凶的基本判断是否准确
+2. **应期推断**：时间节点的推断与实际情况的差距
+3. **神煞克应**：哪些神煞信号被误判或遗漏
+4. **三传事理**：初传→中传→末传的事态发展与实际是否吻合
+5. **用神选取**：用神的选取和判断是否恰当
+
+每条改进规则应关联到占卜心法的具体章节。"""
+        }
+
+        domain_label = {"destiny": "推命", "divination": "占卜"}.get(domain, "通用")
+        domain_instruction = domain_instructions.get(domain, domain_instructions.get("destiny", ""))
+
+        ctx_parts = [f"""## 自反迭代反推任务【{domain_label}领域】
 
 你是一位大六壬专家，正在进行一次「反推训练」。以下是某个课盘的原始解读和后来实际发生的结果。请认真对比分析："""]
 
@@ -1892,6 +2144,10 @@ async def api_iterate_case(request: Request):
 
 ### 实际发生的结果（已知事实）
 {actual_outcome}
+
+---
+
+{domain_instruction}
 
 ---
 
@@ -1915,7 +2171,7 @@ AI 为什么会出现这些偏差？是某个神将的解读习惯问题，还�
 """)
 
         full_ctx = "\n".join(ctx_parts)
-        system = """你是一位严谨的大六壬专家，正在进行反推训练。你的目标是诚实地面对自己的错误，从中提炼出可操作的改进规则。
+        system = f"""你是一位严谨的大六壬专家，正在进行【{domain_label}领域】的反推训练。你的目标是诚实地面对自己的错误，从中提炼出可操作的改进规则。
 
 请保持：
 - 诚实：不掩饰错误，直接点出问题
@@ -1923,7 +2179,17 @@ AI 为什么会出现这些偏差？是某个神将的解读习惯问题，还�
 - 建设性：每个错误都要配上改进规则
 - 简洁：每段不超过150字"""
 
-        response = _call_llm(system, [{"role": "user", "content": full_ctx}])
+        response_text = _call_llm(system, [{"role": "user", "content": full_ctx}])
+
+        # 提取教训摘要（改进规则部分）
+        lessons = ""
+        import re as re_mod
+        rules_match = re_mod.search(r'(?:###?\s*4\.?\s*改进规则.*?)(?=###?\s*5\.|$)', response_text, re_mod.DOTALL)
+        if rules_match:
+            lessons = rules_match.group(0).strip()
+        else:
+            # 回退：取最后一段
+            lessons = response_text[-500:]
 
         # 保存迭代记录
         ts = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
@@ -1931,17 +2197,35 @@ AI 为什么会出现这些偏差？是某个神将的解读习惯问题，还�
             "id": ts,
             "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "type": "iterate",
+            "domain": domain,
+            "skill_id": skill_id,
             "question": original_question,
             "ai_response": original_response[:2000],
             "actual_outcome": actual_outcome,
             "user_notes": user_notes[:2000],
-            "analysis": response,
+            "analysis": response_text,
+            "lessons": lessons,
         }
         ref_dir = get_reflections_dir()
         with open(ref_dir / f"iterate_{ts}.json", "w", encoding="utf-8") as f:
             json.dump(iteration, f, ensure_ascii=False, indent=2)
 
-        return {"success": True, "analysis": response, "id": ts}
+        # 如果有对应 skill，自动触发 Skill 修正
+        auto_correct_result = None
+        if skill_id and lessons:
+            auto_correct_result = await _auto_correct_skill(
+                skill_id=skill_id,
+                correction=f"【{domain_label}反推】\n实际结果：{actual_outcome}\n\n{lessons}",
+                question=original_question,
+                ai_response=original_response,
+                section_feedback=[],
+                wrong_count=1,
+            )
+
+        result = {"success": True, "analysis": response_text, "lessons": lessons, "id": ts}
+        if auto_correct_result:
+            result["auto_correct"] = auto_correct_result
+        return result
     except Exception as e:
         traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)

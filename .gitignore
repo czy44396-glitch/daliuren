@@ -6,3 +6,5 @@ backend/data/
 .idea/
 *.log
 history_backup/
+.env
+backend/.env

@@ -34,6 +34,12 @@ const POS = {
     "寅":[3,0],"丑":[3,1],"子":[3,2],"亥":[3,3],
 };
 
+// 全局常量导出（消除多处重复定义）
+window._LR = {
+    DZ: DZ, DZC: DZC,
+    TJS: TJS, TJC: TJC, POS: POS,
+};
+
 function renderBoard(data) {
     if (!data) return;
 
@@ -46,7 +52,10 @@ function renderBoard(data) {
     // === Part 3: HTML 三传卡片 ===
     _renderSanchuanHTML(data);
 
-    // === Part 4: 底部信息栏 ===
+    // === Part 4: 神煞 ===
+    _renderShashenHTML(data);
+
+    // === Part 5: 底部信息栏 ===
     _renderInfoHTML(data);
 }
 
