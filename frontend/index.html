@@ -376,10 +376,12 @@
                     <input type="text" id="chat-input" placeholder="输入问题深入解读...">
                     <button id="btn-chat-send" class="btn btn-primary">发送</button>
                 </div>
-                <div id="chat-style-toggle" style="padding:4px 8px;border-top:1px solid #e0d5c1;display:flex;align-items:center;gap:6px;font-size:0.7rem;">
+                <div id="chat-style-toggle" style="padding:4px 8px;border-top:1px solid #e0d5c1;display:flex;align-items:center;gap:6px;font-size:0.7rem;flex-wrap:wrap">
                     <label style="display:flex;align-items:center;gap:4px;cursor:pointer;color:var(--text3)">
                         <input type="checkbox" id="chk-personal-style"> 参考我的解读风格
                     </label>
+                    <span style="flex:1"></span>
+                    <button id="btn-skill-learn" class="btn btn-sm" style="font-size:10px;background:rgba(184,58,46,0.04);border:1px solid rgba(184,58,46,0.2);color:#b83a2e" title="从案例库笔记中学习你的解课逻辑">AI 学习我的风格</button>
                     <span id="style-hint" style="color:var(--bronze);font-size:0.6rem;display:none"></span>
                 </div>
             </section>
@@ -664,7 +666,7 @@
     <script src="/static/js/pan-renderer.js?v=19"></script>
     <script src="/static/js/chat.js?v=7"></script>
     <script src="/static/js/classics.js?v=5"></script>
-    <script src="/static/js/app.js?v=40"></script>
+    <script src="/static/js/app.js?v=41"></script>
     <script>
     // ====== PWA Service Worker 注册 + 安装提示 + 自动更新 ======
     let _installPrompt = null;

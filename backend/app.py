@@ -1611,6 +1611,146 @@ async def api_route_skill(request: Request):
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 
+# ========== Skill 自我学习 API ==========
+
+@app.post("/api/skills/learn")
+async def api_skill_learn(request: Request):
+    """
+    AI 从案例笔记中学习用户的解课逻辑，生成优化版 Skill。
+
+    请求体：
+    - skill_id: 要学习的 skill（如 "mingli"）
+    - cases: 带个人笔记的案例列表 [{name, tags, personal_notes, pan_data, actual_outcome}, ...]
+    """
+    try:
+        data = await request.json()
+        skill_id = data.get("skill_id", "mingli")
+        cases = data.get("cases", [])
+
+        # 筛选有笔记或实际结果的案例
+        rich_cases = [c for c in cases if (c.get("personal_notes", "").strip() or c.get("actual_outcome", "").strip())]
+        if not rich_cases:
+            return JSONResponse({"success": False, "error": "没有找到含笔记的案例。请先在案例库中保存带有个人解读笔记的案例。"}, status_code=400)
+
+        # 加载原有 skill
+        from liuren.skill_manager import get_skill_by_id
+        original_skill = get_skill_by_id(skill_id)
+        original_content = original_skill.get("_content", "") if original_skill else ""
+        original_name = original_skill.get("name", skill_id) if original_skill else skill_id
+
+        from liuren.jiepan import _call_llm
+
+        # 构建案例数据
+        case_parts = []
+        for i, c in enumerate(rich_cases[:20]):  # 最多20个案例
+            sz = c.get("pan_data", {}).get("时间", {}).get("四柱", {})
+            sc = c.get("pan_data", {}).get("三传", {})
+            tags = c.get("tags", [])
+            case_parts.append(f"""### 案例{i+1}：《{c.get('name','')}》
+**标签**：{', '.join(tags) if tags else '无'}
+**四柱**：{sz.get('年柱','')} {sz.get('月柱','')} {sz.get('日柱','')} {sz.get('时柱','')}
+**课式**：{sc.get('方法','')}课
+**三传**：{sc.get('初传','')}→{sc.get('中传','')}→{sc.get('末传','')}
+**六亲**：{c.get('pan_data',{}).get('三传六亲',{})}
+**用户笔记**：{c.get('personal_notes','')[:1500]}
+**实际结果**：{c.get('actual_outcome','')[:800]}""")
+
+        full_cases = "\n\n".join(case_parts)
+
+        prompt = f"""# 任务：从用户的解课笔记中学习，生成优化版 Skill
+
+## 背景
+用户是一位大六壬实践者，在案例库中积累了 {len(rich_cases)} 个带有个人解读笔记的案例。你的任务是：
+1. 仔细阅读每个案例中的用户笔记
+2. 提取用户的解课逻辑、分析框架、用词风格、判断偏好
+3. 将这些模式融入现有的 Skill 框架中
+4. 生成一个「被用户思维训练过」的优化版 Skill Markdown
+
+## 现有 Skill 框架（供参考和扩展）
+{original_content[:3000] if original_content else '（无现有框架，请根据用户笔记创建）'}
+
+## 用户案例笔记
+{full_cases}
+
+---
+
+## 输出要求
+
+请输出一个完整的优化版 Skill Markdown。必须包含：
+
+### 1. 学到的用户思维模式（新增章节）
+列出从笔记中提取的 5-8 条用户特有的解课习惯。格式：
+- **模式 N**：用户在处理 XX 类型问题时，习惯先看……再看……最后……（引用具体案例佐证）
+
+### 2. 用户的判断偏好（新增章节）
+- 用户对各类神将/六亲/课式的吉凶倾向
+- 用户特别关注的信号（如反复出现的某个地支/天将组合）
+- 用户常用的应期推断方法
+
+### 3. 用户的语言风格（新增章节）
+- 高频词汇和句式
+- 语气特点（严谨/通俗/诗意）
+- 案例中的标志性表达
+
+### 4. 优化后的推命流程
+基于用户笔记和原有框架，给出优化的步骤流程。每个步骤标注「继承」或「从用户笔记提炼」。
+
+### 5. 反推修正规则（如有实际结果反馈）
+从标注了实际结果的案例中，提炼出修正规则。
+- **修正规则 N**：原以为……但实际……所以应改为……
+
+---
+
+## 约束
+- 保持原 Skill 的有效框架，不要完全推翻
+- 引用具体案例作为佐证
+- 语言风格向用户笔记靠拢
+- 输出完整 Markdown，可直接作为 Skill 文件使用
+- 保留原 Skill 的 frontmatter（id/name/trigger等）
+- 长度控制在 3000 字以内"""
+
+        response = _call_llm(
+            "你是一位大六壬专家，擅长从实践笔记中提炼方法论。请认真阅读用户的解课笔记，提取思维模式，生成优化版 Skill。",
+            [{"role": "user", "content": prompt}]
+        )
+
+        # 保存学习的 skill 到文件
+        import re
+        # 提取或构造 frontmatter
+        fm_match = re.match(r'^---\s*\n(.*?)\n---', response, re.DOTALL)
+        if not fm_match:
+            # 给生成的 skill 加上默认 frontmatter
+            from datetime import datetime
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            frontmatter = f"""---
+id: {skill_id}_learned_{ts}
+name: {original_name}（已学习）
+trigger: [{original_skill.get('trigger','').strip('[]') if original_skill else '命,运,占,问'}]
+domain: destiny
+output: 命理深描
+version: learned
+---"""
+            response = frontmatter + "\n" + response
+
+        # 保存到 skills 目录
+        skills_dir = Path(__file__).parent / "skills"
+        learned_file = skills_dir / f"{skill_id}_learned.md"
+        with open(learned_file, "w", encoding="utf-8") as f:
+            f.write(response)
+
+        return {
+            "success": True,
+            "skill_markdown": response,
+            "case_count": len(rich_cases),
+            "saved_as": str(learned_file.name),
+            "message": f"已从 {len(rich_cases)} 个案例中学习，Skill 已保存为 {learned_file.name}"
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
 # ========== 自反迭代 API ==========
 
 @app.post("/api/reflections/save")

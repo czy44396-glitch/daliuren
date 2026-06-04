@@ -2734,6 +2734,43 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // 个人风格开关提示
+    // AI 学习我的风格按钮
+    $on('btn-skill-learn', 'click', async function() {
+        // 从 localStorage 收集所有有笔记的案例
+        var idx = _caseList();
+        var richCases = [];
+        for (var i = 0; i < idx.length; i++) {
+            var c = _caseGet(idx[i].id);
+            if (c && (c.personal_notes || c.actual_outcome)) {
+                richCases.push({
+                    name: c.name, tags: c.tags, personal_notes: c.personal_notes || '',
+                    actual_outcome: c.actual_outcome || '', pan_data: c.pan_data
+                });
+            }
+        }
+        if (richCases.length === 0) {
+            Chat.addMessage('system', '案例库中没有带笔记的案例。请先保存案例并撰写个人解读笔记，AI 才能学习你的风格。');
+            return;
+        }
+        // 获取当前选中的 skill
+        var skillId = Chat._currentSkillId || 'mingli';
+        Chat.addMessage('system', '正在从 ' + richCases.length + ' 个案例笔记中学习你的解课逻辑...');
+        try {
+            var resp = await fetch('/api/skills/learn', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ skill_id: skillId, cases: richCases })
+            });
+            var r = await resp.json();
+            if (r.success) {
+                Chat.onChatResponse('## 学习完成！\n\n从 **' + r.case_count + '** 个案例笔记中提取了你的思维模式。\n\n优化版 Skill 已保存为 `' + r.saved_as + '`。\n\n---\n' + r.skill_markdown.substring(0, 3000) + '\n\n---\n\n> 完整 Skill 已保存。在 Skill 下拉菜单中选择「已学习」版本即可使用。');
+                // 刷新 skill 列表
+                Chat.init();
+            } else {
+                Chat.onError(r.error || '学习失败');
+            }
+        } catch(e) { Chat.onError(e.message); }
+    });
+
     $on('chk-personal-style', 'change', function() {
         const hint = document.getElementById('style-hint');
         if (!hint) return;
