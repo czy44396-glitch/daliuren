@@ -14,7 +14,7 @@ load_dotenv()
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 
 from liuren.paipan import paipan
 from liuren.jiepan import chat_interpret
@@ -1112,6 +1112,53 @@ async def get_case(case_id: str):
             return {"success": True, "case": c}
         return JSONResponse({"success": False, "error": "案例不存在"}, status_code=404)
     except Exception as e:
+        return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+@app.get("/api/cases/{case_id}/export-html")
+async def export_case_html(case_id: str):
+    """导出课例为可编辑讲解 HTML 页面（PPT 风格）"""
+    try:
+        # 查找案例文件
+        case = None
+        for fp in cases_dir.glob(f"{case_id}_*.json"):
+            with open(fp, "r", encoding="utf-8") as f:
+                case = json.load(f)
+            break
+        if not case:
+            return JSONResponse({"success": False, "error": "案例不存在"}, status_code=404)
+
+        # 读取 HTML 模板
+        template_path = frontend_dir / "export-template.html"
+        if not template_path.exists():
+            return JSONResponse({"success": False, "error": "模板文件不存在"}, status_code=500)
+        template = template_path.read_text(encoding="utf-8")
+
+        # 构建案例数据 JSON（注入到模板中）
+        case_json = json.dumps({
+            **case.get("pan_data", {}),
+            "_name": case.get("name", ""),
+            "_tags": case.get("tags", []),
+            "_notes": case.get("personal_notes", "") or case.get("notes", ""),
+            "_outcome": case.get("actual_outcome", ""),
+        }, ensure_ascii=False)
+
+        # 替换占位符
+        html = template.replace("__CASE_DATA_PLACEHOLDER__", case_json)
+
+        # 安全文件名（ASCII fallback 避免 header 编码问题）
+        from urllib.parse import quote
+        safe_name = case.get('name', '课例') or '课例'
+        filename = f"{safe_name}_大六壬讲解.html"
+        try:
+            filename.encode('latin-1')
+        except UnicodeEncodeError:
+            filename = f"case_{case_id}_lecture.html"
+
+        return Response(content=html, media_type="text/html; charset=utf-8",
+                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
+    except Exception as e:
+        traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
 

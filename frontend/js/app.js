@@ -3012,6 +3012,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ====== 导出课例为优雅 HTML 讲解页 ======
     async function exportCaseHTML(caseId) {
+        // 直接调用后端导出接口，生成完整可编辑讲解页
+        try {
+            var a = document.createElement('a');
+            a.href = '/api/cases/' + caseId + '/export-html';
+            a.download = '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } catch(e) { alert('导出失败：' + e.message); }
+        return; /* ── 后端模板渲染，以下旧代码已废弃 ── */
         var caseObj = _caseGet(caseId);
         if (!caseObj || !caseObj.pan_data) {
             try {
