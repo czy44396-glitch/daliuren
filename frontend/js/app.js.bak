@@ -3012,6 +3012,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ====== 导出课例为优雅 HTML 讲解页 ======
     async function exportCaseHTML(caseId) {
+        // 先从 localStorage 取，没有就从服务器拉
         var caseObj = _caseGet(caseId);
         if (!caseObj || !caseObj.pan_data) {
             try {
@@ -3019,8 +3020,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 var j = await resp.json();
                 if (!j.success || !j.case) { alert('案例数据缺失，无法导出'); return; }
                 caseObj = j.case;
+                // 补全字段名兼容
                 if (!caseObj.personal_notes && caseObj.notes) caseObj.personal_notes = caseObj.notes;
-            } catch(e) { alert('获取案例数据失败：' + e.message); return; }
+            } catch(e) {
+                alert('获取案例数据失败：' + e.message);
+                return;
+            }
         }
         if (!caseObj.pan_data) { alert('案例数据缺失（无盘面）'); return; }
         var d = caseObj.pan_data;
@@ -3217,26 +3222,8 @@ document.addEventListener('DOMContentLoaded', () => {
 '</div>\n'+
 '<button class="btn-print" onclick="window.print()" title="打印">🖨</button>\n'+
 '<script>\n'+
-'document.getElementById("notes-body").addEventListener("input",function(){this.style.color="#2c2416"});\n'+
-'</'+'script>\n</body>\n</html>';
-
-        var blob = new Blob(['﻿' + html], {type: 'text/html;charset=UTF-8'});
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = (caseObj.name || '课例') + '_大六壬讲解.html';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    // 初始化各模块（各自隔离，互不影响）
-    try { Chat.init(); } catch(e) { console.warn('[app] Chat.init 失败:', e); }
-    try { Classics.init(); } catch(e) { console.warn('[app] Classics.init 失败:', e); }
-    try { Chat.showWelcome(); } catch(e) { console.warn('[app] Chat.showWelcome 失败:', e); }
-    try { connectWebSocket(); } catch(e) { console.warn('[app] WebSocket 连接失败:', e); }
-    try { loadAllTags(); } catch(e) { console.warn('[app] 预加载标签失败:', e); }
-    try { attachRuneEdit(); } catch(e) { console.warn('[app] rune-edit 初始化失败:', e); }
-    try { _initStorage(); } catch(e) { console.warn('[app] 云端存储初始化失败:', e); }
-});
+'var _designMode=false;
+function toggleDesign(){_designMode=!_designMode;var els=document.querySelectorAll("section h2,header h1,header .meta,.info-card .ic-label,.sk-label,.ss-cat-name,footer p");els.forEach(function(el){el.contentEditable=_designMode?"true":"false";el.style.outline=_designMode?"1px dashed rgba(184,58,46,0.3)":"none"});var db=document.getElementById("btn-design");if(db){db.style.background=_designMode?"rgba(184,58,46,0.12)":"";db.textContent=_designMode?"✎✓":"✎"}}
+document.getElementById("notes-body").addEventListener("input"',function(){this.style.color="#2c2416"});
+document.addEventListener("keydown",function(e){if(e.ctrlKey&&e.key==="s"){e.preventDefault();alert("独立HTML文件 — Ctrl+S 保存整个页面。")}});
+</'+'script>\n</body>\n</html>';
