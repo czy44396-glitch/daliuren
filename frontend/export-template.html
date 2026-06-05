@@ -8,70 +8,75 @@
 :root {
   --bg: #fdfaf3; --card: #faf7f0; --text: #2c2416; --t2: #6b6560; --t3: #9c8b72;
   --red: #b83a2e; --gold: #8b6914; --brd: rgba(107,101,96,0.1);
-  --fs: "Noto Serif SC","Songti SC",serif;
-  --fw: 860px;
+  --font: "Noto Serif SC","Songti SC",serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:var(--fs);line-height:1.8;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.8;min-height:100vh}
 
-/* ── 顶部工具栏 ── */
+/* 工具栏 */
 #tbar{position:sticky;top:0;z-index:99;display:flex;align-items:center;gap:8px;
   padding:10px 20px;background:rgba(253,250,243,0.92);backdrop-filter:blur(12px);
   border-bottom:1px solid var(--brd);flex-wrap:wrap}
 #tbar .sep{width:1px;height:18px;background:var(--brd);margin:0 2px}
 #tbar button{height:30px;padding:0 10px;border:1px solid var(--brd);border-radius:6px;
-  background:transparent;cursor:pointer;font-size:11px;color:var(--t2);font-family:inherit;
-  transition:all .15s;white-space:nowrap}
+  background:transparent;cursor:pointer;font-size:11px;color:var(--t2);font-family:inherit;transition:all .15s;white-space:nowrap}
 #tbar button:hover{background:rgba(184,58,46,0.05);border-color:rgba(184,58,46,0.2);color:var(--red)}
 #tbar button.on{background:rgba(184,58,46,0.08);border-color:rgba(184,58,46,0.25);color:var(--red)}
 #tbar .ttl{font-weight:700;font-size:13px;color:var(--text);margin-right:auto;letter-spacing:4px}
 
-/* ── 主容器 ── */
-#main{max-width:var(--fw);margin:0 auto;padding:0 24px 60px}
+#main{max-width:860px;margin:0 auto;padding:0 24px 60px}
 
-/* ── 封面区 ── */
-.hero{text-align:center;padding:48px 0 32px}
-.hero h1{font-size:1.8rem;font-weight:700;letter-spacing:6px;margin-bottom:6px}
-.hero .meta{font-size:.78rem;color:var(--t3);letter-spacing:2px}
-.hero .tags{margin-top:10px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
-.hero .tags span{font-size:.6rem;background:var(--red);color:#fff;padding:2px 10px;border-radius:10px;letter-spacing:1px}
+/* 封面 */
+.hero{text-align:center;padding:40px 0 28px}
+.hero h1{font-size:1.7rem;font-weight:700;letter-spacing:6px;margin-bottom:4px}
+.hero .meta{font-size:.75rem;color:var(--t3);letter-spacing:2px}
+.hero .tags{margin-top:8px;display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+.hero .tags span{font-size:.58rem;background:var(--red);color:#fff;padding:1px 9px;border-radius:10px;letter-spacing:1px}
 
-/* ── 排盘卡片 ── */
-.pan-card{background:var(--card);border:1px solid var(--brd);border-radius:14px;
-  padding:28px 24px;margin:20px 0;position:relative}
-/* 四柱浮标 — 左上方 */
-.sz-badges{position:absolute;top:16px;left:18px;display:flex;gap:3px;z-index:2}
-.sz-badge{font-size:.6rem;background:rgba(254,252,247,0.92);border:1px solid rgba(107,101,96,0.1);
-  border-radius:4px;padding:3px 8px;text-align:center;letter-spacing:1px;color:var(--t2)}
-.sz-badge b{display:block;font-size:1rem;font-weight:700;color:var(--text);letter-spacing:0}
+/* === 排盘卡片 = 完全匹配主应用格式 === */
+.pan-card{background:var(--card);border:1px solid var(--brd);border-radius:14px;margin:20px 0;padding:24px 20px}
 
-/* 天地盘 + 四课三传 主体 */
-.pan-body{display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
-.pan-left{flex-shrink:0}
-.pan-right{flex:1;min-width:240px;display:flex;flex-direction:column;gap:14px}
+/* 四柱 — 纵向在左 */
+.pan-wrap{display:flex;gap:20px;align-items:flex-start}
+.sz-col{flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding-top:40px}
+.sz-item{text-align:center;font-size:.58rem;color:var(--t3);letter-spacing:1px;line-height:1.4}
+.sz-item .gz{display:block;font-size:1.05rem;font-weight:700;color:var(--text)}
+.sz-item .gz .gan{color:#b8860b}
+.sz-item .gz .zhi{color:#8b1a2b}
 
 /* 天地盘 SVG */
-.pan-svg-wrap{margin-left:20px} /* 给四柱浮标留空间 */
+.pan-svg{flex-shrink:0}
 
-/* 四课 */
-.sike-grid{display:flex;gap:8px;flex-wrap:wrap}
-.sk{flex:1;min-width:80px;background:var(--bg);border:1px solid var(--brd);border-radius:8px;
-  padding:10px 6px;text-align:center}
-.sk .sk-no{font-size:.55rem;color:var(--t3);letter-spacing:1px;margin-bottom:2px}
-.sk .sk-up{font-size:1.5rem;font-weight:700;line-height:1.2}
-.sk .sk-dn{font-size:1rem;font-weight:600}
-.sk .sk-lq{font-size:.55rem;color:var(--t3);margin-top:2px}
+/* 四课三传区 */
+.sike-sc-wrap{flex:1;min-width:180px;display:flex;flex-direction:column;gap:14px}
 
-/* 三传 */
-.sc-row{display:flex;align-items:center;justify-content:center;gap:10px}
-.sc-n{width:42px;height:42px;border-radius:50%;border:2.5px solid;display:flex;
-  align-items:center;justify-content:center;font-size:1.1rem;font-weight:700;background:var(--bg)}
-.sc-ar{font-size:1rem;color:var(--red);font-weight:700}
-.sc-info{text-align:center;font-size:.65rem;color:var(--t3);margin-top:4px}
+/* 四课 — 匹配主应用 .sike-grid */
+.sec-ttl{font-size:.65rem;color:var(--t3);letter-spacing:4px;text-align:center;margin-bottom:2px}
+.sike-grid{display:flex;gap:6px;justify-content:center}
+.sk-cell{flex:1;min-width:70px;max-width:100px;background:var(--bg);border:1px solid var(--brd);
+  border-radius:8px;padding:8px 4px;text-align:center}
+.sk-dg{font-size:.6rem;color:var(--t3);margin-bottom:1px}
+.sk-tj{font-size:.6rem;margin-bottom:1px}
+.sk-up{font-size:1.4rem;font-weight:700;line-height:1.2}
+.sk-dn{font-size:1rem;font-weight:600}
+.sk-lq{font-size:.55rem;color:var(--t3);margin-top:1px}
 
-/* ── 讲解页（可编辑幻灯片） ── */
+/* 三传 — 匹配主应用纵向 */
+.sc-col{display:flex;flex-direction:column;align-items:center;gap:4px}
+.sc-cell{text-align:center}
+.sc-lq{font-size:.65rem;font-weight:600}
+.sc-zhi{display:inline-block;width:44px;height:44px;line-height:44px;border-radius:50%;
+  border:2.5px solid;font-size:1.15rem;font-weight:700;background:var(--bg);margin:2px 0}
+.sc-arrow{font-size:.9rem;color:var(--red);font-weight:700;margin:0}
+.sc-tj{font-size:.6rem;font-weight:600}
+.sc-dg{font-size:.6rem;color:var(--t3)}
+
+/* 课式信息 */
+.method-info{text-align:center;font-size:.7rem;color:var(--t2);margin-top:8px;padding-top:8px;border-top:1px solid var(--brd)}
+
+/* === 讲解页 === */
 .txt-slide{background:var(--card);border:1px solid var(--brd);border-radius:12px;
-  margin:16px 0;padding:28px 32px;min-height:100px}
+  margin:16px 0;padding:28px 32px;min-height:80px}
 .txt-slide h3{font-size:1rem;color:var(--red);margin:12px 0 4px}
 .txt-slide h4{font-size:.88rem;color:var(--t2);margin:8px 0 2px}
 .txt-slide p{margin:4px 0}
@@ -81,42 +86,31 @@ body{background:var(--bg);color:var(--text);font-family:var(--fs);line-height:1.
 
 /* 设计模式 */
 body.dm .txt-slide{outline:1px dashed rgba(184,58,46,0.15)}
-body.dm .txt-slide:hover{outline-color:rgba(184,58,46,0.35)}
 body.dm [contenteditable]{outline:1px dashed rgba(45,138,86,0.2);border-radius:3px;cursor:text}
-body.dm [contenteditable]:hover{outline-color:rgba(45,138,86,0.45)}
 body.dm [contenteditable]:focus{outline:2px solid rgba(45,138,86,0.5)}
 
-/* 添加按钮 */
 .add-bar{text-align:center;margin:12px 0}
 .add-bar button{width:36px;height:28px;border:1px dashed var(--brd);border-radius:14px;
   background:transparent;cursor:pointer;font-size:18px;line-height:0;color:var(--t3)}
 .add-bar button:hover{border-color:var(--red);color:var(--red);background:rgba(184,58,46,0.03)}
 
-/* 页脚 */
-.ft{text-align:center;padding:28px 0;color:var(--t3);font-size:.6rem;letter-spacing:2px;
-  border-top:1px solid var(--brd);margin-top:24px}
+.ft{text-align:center;padding:28px 0;color:var(--t3);font-size:.6rem;letter-spacing:2px;border-top:1px solid var(--brd);margin-top:24px}
 
-/* ── 响应式 ── */
 @media(max-width:700px){
-  .pan-body{flex-direction:column;align-items:center}
-  .pan-right{width:100%}
-  .sz-badges{position:static;justify-content:center;margin-bottom:10px}
-  .pan-svg-wrap{margin-left:0}
+  .pan-wrap{flex-direction:column;align-items:center}
+  .sz-col{flex-direction:row;padding-top:0;gap:4px}
   .hero h1{font-size:1.3rem}
   .txt-slide{padding:16px 18px}
 }
-
-/* ── 打印 ── */
 @media print{
   body{background:#fff}#tbar{display:none!important}
-  .pan-card,.txt-slide{box-shadow:none;border:1px solid #ddd;break-inside:avoid}
+  .pan-card,.txt-slide{border:1px solid #ddd;break-inside:avoid}
   .add-bar{display:none}
 }
 </style>
 </head>
 <body>
 
-<!-- ══════ 工具栏 ══════ -->
 <div id="tbar">
   <span class="ttl" id="tbar-ttl">大六壬课例</span>
   <span class="sep"></span>
@@ -137,47 +131,44 @@ body.dm [contenteditable]:focus{outline:2px solid rgba(45,138,86,0.5)}
   <button onclick="window.print()">🖨 打印</button>
 </div>
 
-<!-- ══════ 主体 ══════ -->
 <div id="main"></div>
-
-<footer class="ft" id="ft">大六壬课例讲解 · <span id="ft-time"></span></footer>
+<footer class="ft">大六壬课例讲解 · <span id="ft-time"></span></footer>
 
 <script>
 var D = __CASE_DATA_PLACEHOLDER__;
-var DZC={'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
-var TJS={'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
+var DZC={子:'#1a3a5c',亥:'#1a3a5c',丑:'#7D5A3C',未:'#7D5A3C',辰:'#7D5A3C',戌:'#7D5A3C',巳:'#c94043',午:'#c94043',寅:'#2d7d46',卯:'#2d7d46',申:'#D4A017',酉:'#D4A017'};
+var TJS={贵人:'贵',螣蛇:'蛇',朱雀:'朱',六合:'合',勾陈:'勾',青龙:'龙',天空:'空',白虎:'虎',太常:'常',玄武:'玄',太阴:'阴',天后:'后'};
+var TJC={贵人:'#7D5A3C',天空:'#7D5A3C',勾陈:'#7D5A3C',太常:'#7D5A3C',青龙:'#2d7d46',六合:'#2d7d46',白虎:'#D4A017',太阴:'#D4A017',天后:'#1a3a5c',玄武:'#1a3a5c',螣蛇:'#c94043',朱雀:'#c94043'};
 var DZ='子丑寅卯辰巳午未申酉戌亥'.split('');
 var POS={巳:[0,0],午:[0,1],未:[0,2],申:[0,3],辰:[1,0],酉:[1,3],卯:[2,0],戌:[2,3],寅:[3,0],丑:[3,1],子:[3,2],亥:[3,3]};
 var dm=false;
 
 function toggleDM(){
-  dm=!dm; document.body.classList.toggle('dm',dm);
-  var b=document.getElementById('btn-dm'); b.textContent=dm?'✎✓ 退出设计':'✎ 设计模式'; b.classList.toggle('on',dm);
+  dm=!dm;document.body.classList.toggle('dm',dm);
+  var b=document.getElementById('btn-dm');b.textContent=dm?'✎✓ 退出':'✎ 设计';b.classList.toggle('on',dm);
   document.getElementById('btn-add').style.display=dm?'':'none';
   document.querySelectorAll('[data-editable]').forEach(function(e){e.contentEditable=dm?'true':'false'});
 }
 function exec(c,v){document.execCommand(c,false,v||null)}
 function addImg(){
   var i=document.createElement('input');i.type='file';i.accept='image/*';
-  i.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();
-    r.onload=function(ev){exec('insertImage',ev.target.result)};r.readAsDataURL(f)};i.click();
+  i.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){exec('insertImage',ev.target.result)};r.readAsDataURL(f)};i.click();
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-function md2html(md){return esc(md).replace(/^### (.+)$/gm,'<h4>$1</h4>').replace(/^## (.+)$/gm,'<h3>$1</h3>').replace(/^# (.+)$/gm,'<h2>$1</h2>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>').replace(/__(.+?)__/g,'<u>$1</u>').replace(/^[-*]\s(.+)$/gm,'<li>$1</li>').replace(/^>\s(.+)$/gm,'<blockquote>$1</blockquote>').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')}
+function md2html(md){return esc(md).replace(/^### (.+)$/gm,'<h4>$1</h4>').replace(/^## (.+)$/gm,'<h3>$1</h3>').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>').replace(/__(.+?)__/g,'<u>$1</u>').replace(/^[-*]\s(.+)$/gm,'<li>$1</li>').replace(/^>\s(.+)$/gm,'<blockquote>$1</blockquote>').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')}
+function gzSpan(gz){return gz?'<span class="gan">'+gz[0]+'</span><span class="zhi">'+gz[1]+'</span>':'--'}
 
-// 添加讲解页
 function addTxtSlide(html){
   var s=document.createElement('div');s.className='txt-slide';s.setAttribute('data-editable','true');
-  s.innerHTML=html||'<p style="color:var(--t3)">在此撰写讲解内容…选中文字可用顶部工具栏格式化。</p>';
+  s.innerHTML=html||'<p style="color:var(--t3)">在此撰写讲解内容…</p>';
   if(!dm)s.querySelectorAll('[contenteditable]').forEach(function(e){e.contentEditable='false'});
   document.getElementById('slides-area').appendChild(s);
 }
 
-// 建造天地盘 SVG
 function buildPanSVG(){
   var td=D['天地盘']||{},xk=D['旬空']||[],dgAll=D['遁干']||{},tjAll=D['十二天将']||{};
-  var W=420,C=95,G=6,P=36;
-  var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+W+'" style="width:100%;max-width:420px">';
+  var W=400,C=88,G=6,P=36;
+  var s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+W+'" style="width:100%;max-width:400px">';
   s+='<rect width="'+W+'" height="'+W+'" fill="#fefcf7" rx="14"/>';
   for(var r=0;r<4;r++)for(var c=0;c<4;c++)
     s+='<rect x="'+(P+c*(C+G))+'" y="'+(P+r*(C+G))+'" width="'+C+'" height="'+C+'" fill="none" stroke="rgba(107,101,96,0.08)" stroke-width="0.5" rx="4"/>';
@@ -186,8 +177,8 @@ function buildPanSVG(){
     var gx=P+p[1]*(C+G),gy=P+p[0]*(C+G);
     var tz=td[z]||z,clr=DZC[tz]||'#2c2416',ko=xk.indexOf(z)>=0||xk.indexOf(tz)>=0;
     s+='<rect x="'+gx+'" y="'+gy+'" width="'+C+'" height="'+C+'" fill="rgba(254,252,247,0.9)" rx="6"/>';
-    s+='<text x="'+(gx+C/2)+'" y="'+(gy+C*0.68)+'" text-anchor="middle" fill="'+(ko?'#d0c8b0':DZC[z]||'#2c2416')+'" font-size="28" font-weight="700" font-family="serif">'+z+'</text>';
-    s+='<text x="'+(gx+C*0.78)+'" y="'+(gy+C*0.28)+'" text-anchor="middle" fill="'+(ko?'#d0c8b0':clr)+'" font-size="15" font-weight="600" font-family="serif">'+tz+'</text>';
+    s+='<text x="'+(gx+C/2)+'" y="'+(gy+C*0.7)+'" text-anchor="middle" fill="'+(ko?'#d0c8b0':DZC[z]||'#2c2416')+'" font-size="27" font-weight="700" font-family="serif">'+z+'</text>';
+    s+='<text x="'+(gx+C*0.78)+'" y="'+(gy+C*0.28)+'" text-anchor="middle" fill="'+(ko?'#d0c8b0':clr)+'" font-size="14" font-weight="600" font-family="serif">'+tz+'</text>';
     var dg=dgAll[z]||'';if(dg)s+='<text x="'+(gx+C*0.22)+'" y="'+(gy+C*0.28)+'" text-anchor="middle" fill="#9c8b72" font-size="9" font-family="serif">'+dg+'</text>';
     var tj=tjAll[z]||'';if(tj&&TJS[tj])s+='<text x="'+(gx+C/2)+'" y="'+(gy+C*0.88)+'" text-anchor="middle" fill="rgba(107,101,96,0.4)" font-size="8">'+TJS[tj]+'</text>';
   }
@@ -195,88 +186,92 @@ function buildPanSVG(){
   return s;
 }
 
-// ══════ 初始化 ══════
 (function init(){
   if(!D||!D['时间']){document.getElementById('main').innerHTML='<div class="hero"><h1>无数据</h1></div>';return}
   var sz=D['时间']?.['四柱']||{},sc=D['三传']||{},pm=D['排盘参数']||{};
   var jq=D['节气']||{},sj=D['时间']||{},xk=D['旬空']||[];
   var sike=D['四课详情']||[],sikeLQ=D['四课六亲']||[],scLQ=D['三传六亲']||{},scTJ=D['三传天将']||{};
+  var tjAll=D['十二天将']||{},dgAll=D['遁干']||{};
   var name=D._name||'无题',tags=D._tags||[],notes=D._notes||'';
-  var now=new Date().toLocaleString('zh-CN');
   document.getElementById('tbar-ttl').textContent=name||'大六壬课例';
-  document.getElementById('ft-time').textContent=now;
+  document.getElementById('ft-time').textContent=new Date().toLocaleString('zh-CN');
 
   var h='';
-
-  // ── 封面 ──
-  h+='<div class="hero">';
-  h+='<h1 data-editable="true">'+esc(name)+'</h1>';
-  h+='<div class="meta" data-editable="true">'+(sj['公历']||'')+' · '+(pm['占时']||'')+'占 · '+(pm['月将']||'')+'将 · '+(jq['当前节气']||'')+' · '+(sc['方法']||'')+'课</div>';
-  if(tags.length)h+='<div class="tags">'+tags.map(function(t){return '<span>'+esc(t)+'</span>'}).join('')+'</div>';
+  // 封面
+  h+='<div class="hero"><h1 data-editable="true">'+esc(name)+'</h1>';
+  h+='<div class="meta" data-editable="true">'+(sj['公历']||'')+' · '+(pm['占时']||'')+'占 · '+(pm['月将']||'')+'将 · '+(jq['当前节气']||'')+' · '+(sc['方法']||'')+'课 · '+(sj['昼夜']||'')+'</div>';
+  if(tags.length)h+='<div class="tags">'+tags.map(function(t){return'<span>'+esc(t)+'</span>'}).join('')+'</div>';
   h+='</div>';
 
-  // ── 排盘区：四柱浮标 + 天地盘 + 四课 + 三传 ──
-  h+='<div class="pan-card">';
+  // ═══ 排盘卡片 ═══
+  h+='<div class="pan-card"><div class="pan-wrap">';
 
-  // 四柱浮标
+  // 左：四柱纵向
   var pillars=['年','月','日','时'];
   var pz=[sz['年柱']||'--',sz['月柱']||'--',sz['日柱']||'--',sz['时柱']||'--'];
-  h+='<div class="sz-badges">';
-  for(var pi=0;pi<4;pi++){
-    h+='<div class="sz-badge">'+pillars[pi]+'<b>'+pz[pi]+'</b></div>';
-  }
-  h+='<div class="sz-badge" style="min-width:40px">干<b style="font-size:0.9rem">'+(sj['日干']||'')+'</b></div>';
-  h+='<div class="sz-badge" style="min-width:40px">支<b style="font-size:0.9rem">'+(sj['日支']||'')+'</b></div>';
+  h+='<div class="sz-col">';
+  for(var pi=0;pi<4;pi++)h+='<div class="sz-item">'+pillars[pi]+'<span class="gz">'+gzSpan(pz[pi])+'</span></div>';
+  h+='<div class="sz-item">干<span class="gz" style="font-size:0.85rem">'+(sj['日干']||'')+'</span></div>';
+  h+='<div class="sz-item">支<span class="gz" style="font-size:0.85rem">'+(sj['日支']||'')+'</span></div>';
   h+='</div>';
 
-  // 排盘主体
-  h+='<div class="pan-body">';
-  // 左：天地盘
-  h+='<div class="pan-left"><div class="pan-svg-wrap">'+buildPanSVG()+'</div></div>';
+  // 中：天地盘 SVG
+  h+='<div class="pan-svg">'+buildPanSVG()+'</div>';
+
   // 右：四课 + 三传
-  h+='<div class="pan-right">';
-  // 四课
-  h+='<div class="sike-grid">';
+  h+='<div class="sike-sc-wrap">';
+
+  // 四课 (匹配主应用 .sike-grid 格式)
+  h+='<div class="sec-ttl">四 课</div><div class="sike-grid">';
   for(var si=0;si<sike.length;si++){
-    var sk=sike[si],sn=sk['上神'],dp=sk['地盘地支']||sk['地盘'];
-    var snK=xk.indexOf(sn)>=0,lq=sikeLQ[si]?sikeLQ[si]['六亲']:'';
-    h+='<div class="sk"><div class="sk-no">第'+(si+1)+'课'+(lq?' · '+lq:'')+'</div>';
-    h+='<div class="sk-up" style="color:'+(snK?'#d0c8b0':DZC[sn]||'#2c2416')+'">'+sn+'</div>';
-    h+='<div class="sk-dn" style="color:'+(DZC[dp]||'#2c2416')+'">'+dp+'</div></div>';
+    var sk=sike[si],sn=sk['上神'],dp=sk['地盘'];
+    var snK=xk.indexOf(sn)>=0,clrSn=snK?'#bbb':DZC[sn]||'#2c2416',clrDp=DZC[dp]||'#2c2416';
+    var tj=tjAll[sk['地盘地支']||sk['地盘']]||'',tjClr=TJC[tj]||'#8b1a2b';
+    var dg=dgAll[sn]||'',lq=sikeLQ[si]?sikeLQ[si]['六亲']:'';
+    h+='<div class="sk-cell">';
+    h+='<div class="sk-dg">'+dg+'</div><div class="sk-tj" style="color:'+tjClr+'">'+(TJS[tj]||tj)+'</div>';
+    h+='<div class="sk-up" style="color:'+clrSn+'">'+sn+'</div><div class="sk-dn" style="color:'+clrDp+'">'+dp+'</div>';
+    if(lq)h+='<div class="sk-lq">'+lq+'</div>';
+    h+='</div>';
   }
   h+='</div>';
-  // 三传
+
+  // 三传 (匹配主应用纵向格式)
   var scNames=['初传','中传','末传'];
-  h+='<div class="sc-row">';
-  for(var sci=0;sci<3;sci++){var scZ=sc[scNames[sci]]||'';
-    h+='<div class="sc-n" style="border-color:'+(DZC[scZ]||'#2c2416')+';color:'+(DZC[scZ]||'#2c2416')+'">'+scZ+'</div>';
-    if(sci<2)h+='<span class="sc-ar">→</span>';}
+  h+='<div class="sec-ttl">三 传</div><div class="sc-col">';
+  for(var sci=0;sci<3;sci++){
+    var scZ=sc[scNames[sci]]||'',ko=xk.indexOf(scZ)>=0;
+    var clr=ko?'#bbb':DZC[scZ]||'#2c2416',tjShort=TJS[scTJ[scNames[sci]]]||scTJ[scNames[sci]]||'';
+    var tjClr2=TJC[scTJ[scNames[sci]]]||'#8b1a2b',dg2=dgAll[scZ]||'';
+    h+='<div class="sc-cell">';
+    h+='<div class="sc-lq" style="color:'+(ko?'#bbb':DZC[scZ]||'#2c2416')+'">'+(scLQ[scNames[sci]]||'')+'</div>';
+    h+='<div class="sc-zhi" style="border-color:'+clr+';color:'+clr+'">'+scZ+'</div>';
+    if(sci<2)h+='<div class="sc-arrow">↓</div>';
+    h+='<div class="sc-tj" style="color:'+tjClr2+'">'+tjShort+'</div>';
+    h+='<div class="sc-dg">'+dg2+'</div></div>';
+  }
   h+='</div>';
-  h+='<div class="sc-info">'+(sc['方法']||'')+'课 · 初'+(scLQ['初传']||'')+'/'+(scTJ['初传']||'')+' → 中'+(scLQ['中传']||'')+'/'+(scTJ['中传']||'')+' → 末'+(scLQ['末传']||'')+'/'+(scTJ['末传']||'')+'</div>';
-  h+='</div></div></div>'; // close pan-right, pan-body, pan-card
+
+  h+='</div></div>'; // close sike-sc-wrap, pan-wrap
+
+  // 课式信息
+  h+='<div class="method-info">'+(sc['方法']||'')+'课 · 初传'+(scLQ['初传']||'')+'发端 → 中传'+(scLQ['中传']||'')+'移易 → 末传'+(scLQ['末传']||'')+'归计</div>';
+  h+='</div>'; // close pan-card
 
   document.getElementById('main').innerHTML=h;
 
-  // ── 讲解区 ──
+  // 讲解区
   var sa=document.createElement('div');sa.id='slides-area';document.getElementById('main').appendChild(sa);
-
-  // 解析笔记为多个 slide
   var slides=notes?notes.split(/\n\n---\n\n|\n\n===\n\n/):[];
-  if(slides.length===0){
-    addTxtSlide('<p style="color:var(--t3)">在此撰写讲解内容…更多页请开启「设计模式」后点「＋ 新页」添加</p>');
-  }else{
-    slides.forEach(function(s){addTxtSlide('<div>'+md2html(s.trim())+'</div>')});
-  }
+  if(!slides.length)addTxtSlide('<p style="color:var(--t3)">在此撰写讲解内容…点击「✎ 设计模式」后可编辑全部文字，也可「＋ 新页」添加讲解页</p>');
+  else slides.forEach(function(s){addTxtSlide('<div>'+md2html(s.trim())+'</div>')});
 
-  // 添加按钮
   var ab=document.createElement('div');ab.className='add-bar';ab.id='add-bar';
   ab.innerHTML='<button onclick="addTxtSlide()" title="添加讲解页">＋</button>';
   document.getElementById('main').appendChild(ab);
-
 })();
 
-// Ctrl+S 提示
-document.addEventListener('keydown',function(e){if(e.ctrlKey&&e.key==='s'){e.preventDefault();alert('独立HTML文件 — 请用浏览器 Ctrl+S 保存整个页面到本地。')}});
+document.addEventListener('keydown',function(e){if(e.ctrlKey&&e.key==='s'){e.preventDefault();alert('独立HTML文件 — 请用 Ctrl+S 保存到本地')}});
 </script>
 </body>
 </html>
