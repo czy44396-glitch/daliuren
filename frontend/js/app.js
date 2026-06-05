@@ -31,6 +31,7 @@ const _toolbarActions = {
     'btn-correct-sc':      () => showCorrectSCModal(),
     'btn-correct-yj':      () => showCorrectYJModal(),
     'btn-export-img':      () => exportCurrentPan(),
+    'btn-export-html':     () => { if (currentLoadedCaseId) exportCaseHTML(currentLoadedCaseId); },
     'btn-classics':        () => { if (typeof Classics !== 'undefined') Classics.open(); },
     'btn-back-portal':     () => backToPortal(),
 };
@@ -561,7 +562,8 @@ function loadCaseList() {
             '<button class="btn btn-sm case-btn-notes" data-id="'+c.id+'">笔记</button>' +
             '<button class="btn btn-sm case-rename" data-id="'+c.id+'" data-name="'+c.name.replace(/"/g,'&quot;')+'">改名</button>' +
             '<button class="btn btn-sm case-tags-edit" data-id="'+c.id+'">改标签</button>' +
-            '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>';
+            '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>' +
+            '<button class="btn btn-sm case-export-html" data-id="'+c.id+'" style="background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.25);color:#8b6914">导出</button>';
         list.appendChild(div);
     });
 
@@ -625,6 +627,12 @@ function loadCaseList() {
     list.querySelectorAll('.case-tags-edit').forEach(function(b) { b.addEventListener('click', function(e) {
         e.stopPropagation();
         _showTagEditor(b.dataset.id);
+    }); });
+
+    // 导出HTML按钮
+    list.querySelectorAll('.case-export-html').forEach(function(b) { b.addEventListener('click', function(e) {
+        e.stopPropagation();
+        exportCaseHTML(b.dataset.id);
     }); });
 }
 
@@ -1188,14 +1196,17 @@ function savePersonalNotes(silent) {
 function updateMyNotesBtn(caseData) {
     const btn = document.getElementById('btn-my-notes');
     if (!btn) return;
+    const btnExp = document.getElementById('btn-export-html');
     if (currentLoadedCaseId) {
         btn.style.display = '';
         const hasNotes = caseData && caseData.personal_notes && caseData.personal_notes.trim();
         btn.classList.toggle('has-notes', !!hasNotes);
         btn.title = hasNotes ? '编辑个人解读笔记（已有内容）' : '撰写个人解读笔记';
+        if (btnExp) btnExp.style.display = '';
     } else {
         btn.style.display = 'none';
         btn.classList.remove('has-notes');
+        if (btnExp) btnExp.style.display = 'none';
     }
 }
 
@@ -1363,12 +1374,14 @@ function switchToAnalysisView() {
 function showViewButtons() {
     document.getElementById('btn-view-board').style.display = '';
     document.getElementById('btn-view-analysis').style.display = '';
+    document.getElementById('btn-export-html').style.display = '';
     switchToBoardView();
 }
 
 function hideViewButtons() {
     document.getElementById('btn-view-board').style.display = 'none';
     document.getElementById('btn-view-analysis').style.display = 'none';
+    document.getElementById('btn-export-html').style.display = 'none';
 }
 
 function resetAnalysisFields() {
@@ -2996,6 +3009,218 @@ document.addEventListener('DOMContentLoaded', () => {
             hint.style.display = 'none';
         }
     });
+
+    // ====== 导出课例为优雅 HTML 讲解页 ======
+    function exportCaseHTML(caseId) {
+        var caseObj = _caseGet(caseId);
+        if (!caseObj || !caseObj.pan_data) { alert('案例数据缺失'); return; }
+        var d = caseObj.pan_data;
+        var sz = d['时间']?.['四柱'] || {};
+        var sc = d['三传'] || {};
+        var pm = d['排盘参数'] || {};
+        var jq = d['节气'] || {};
+        var sj = d['时间'] || {};
+        var xk = d['旬空'] || [];
+        var sike = d['四课详情'] || [];
+        var sikeLQ = d['四课六亲'] || [];
+        var scLQ = d['三传六亲'] || {};
+        var scTJ = d['三传天将'] || {};
+        var tjAll = d['十二天将'] || {};
+        var dgAll = d['遁干'] || {};
+        var ss = d['神煞'] || {};
+        var td = d['天地盘'] || {};
+        var xn = d['行年详情'] || {};
+
+        var DZC = {'子':'#1a3a5c','亥':'#1a3a5c','丑':'#7D5A3C','未':'#7D5A3C','辰':'#7D5A3C','戌':'#7D5A3C','巳':'#c94043','午':'#c94043','寅':'#2d7d46','卯':'#2d7d46','申':'#D4A017','酉':'#D4A017'};
+        var TJS = {'贵人':'贵','螣蛇':'蛇','朱雀':'朱','六合':'合','勾陈':'勾','青龙':'龙','天空':'空','白虎':'虎','太常':'常','玄武':'玄','太阴':'阴','天后':'后'};
+        var DZ = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+        var POS = {'巳':[0,0],'午':[0,1],'未':[0,2],'申':[0,3],'辰':[1,0],'酉':[1,3],'卯':[2,0],'戌':[2,3],'寅':[3,0],'丑':[3,1],'子':[3,2],'亥':[3,3]};
+
+        // Build 天地盘 SVG
+        var svgWH = 440, cell = 100, gap = 8, pad = 40;
+        var panSVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+svgWH+' '+svgWH+'" style="width:100%;max-width:440px">';
+        panSVG += '<rect width="'+svgWH+'" height="'+svgWH+'" fill="#fefcf7" rx="12"/>';
+        // Title
+        panSVG += '<text x="'+svgWH/2+'" y="24" text-anchor="middle" fill="#9c8b72" font-size="11" font-family="serif">天地盘</text>';
+        // Grid lines
+        for (var row = 0; row < 4; row++) {
+            for (var col = 0; col < 4; col++) {
+                var cx = pad + col*(cell+gap), cy = pad + row*(cell+gap);
+                panSVG += '<rect x="'+cx+'" y="'+cy+'" width="'+cell+'" height="'+cell+'" fill="none" stroke="rgba(107,101,96,0.12)" stroke-width="0.5" rx="4"/>';
+            }
+        }
+        // Cells
+        for (var i = 0; i < DZ.length; i++) {
+            var zhi = DZ[i];
+            var pos = POS[zhi];
+            if (!pos) continue;
+            var gx = pad + pos[1]*(cell+gap), gy = pad + pos[0]*(cell+gap);
+            var tz = td[zhi] || zhi;
+            var clr = DZC[tz] || '#2c2416';
+            var isKong = xk.indexOf(zhi) >= 0 || xk.indexOf(tz) >= 0;
+            // Cell bg
+            panSVG += '<rect x="'+gx+'" y="'+gy+'" width="'+cell+'" height="'+cell+'" fill="rgba(254,252,247,0.9)" rx="6"/>';
+            // 地盘 (bottom)
+            panSVG += '<text x="'+(gx+cell/2)+'" y="'+(gy+cell*0.7)+'" text-anchor="middle" fill="'+(isKong?'#d0c8b0':DZC[zhi]||'#2c2416')+'" font-size="30" font-weight="700" font-family="serif">'+zhi+'</text>';
+            // 天盘 (top right)
+            panSVG += '<text x="'+(gx+cell*0.78)+'" y="'+(gy+cell*0.28)+'" text-anchor="middle" fill="'+(isKong?'#d0c8b0':clr)+'" font-size="16" font-weight="600" font-family="serif">'+tz+'</text>';
+            // 遁干
+            var dgVal = dgAll[zhi] || '';
+            if (dgVal) {
+                panSVG += '<text x="'+(gx+cell*0.22)+'" y="'+(gy+cell*0.28)+'" text-anchor="middle" fill="#9c8b72" font-size="10" font-family="serif">'+dgVal+'</text>';
+            }
+            // 天将
+            var tjVal = tjAll[zhi] || '';
+            if (tjVal && TJS[tjVal]) {
+                panSVG += '<text x="'+(gx+cell/2)+'" y="'+(gy+cell*0.88)+'" text-anchor="middle" fill="rgba(107,101,96,0.5)" font-size="8" font-family="sans-serif">'+TJS[tjVal]+'</text>';
+            }
+        }
+        panSVG += '</svg>';
+
+        // Build 四课 cards
+        var sikeHTML = '';
+        for (var si = 0; si < sike.length; si++) {
+            var sk = sike[si];
+            var sn = sk['上神'], dp = sk['地盘地支'] || sk['地盘'];
+            var snK = xk.indexOf(sn) >= 0;
+            var lq = sikeLQ[si] ? sikeLQ[si]['六亲'] : '';
+            sikeHTML += '<div class="sk-card"><div class="sk-label">第'+(si+1)+'课'+(lq?' · '+lq:'')+'</div>';
+            sikeHTML += '<div class="sk-shang" style="color:'+(snK?'#d0c8b0':DZC[sn]||'#2c2416')+'">'+sn+'</div>';
+            sikeHTML += '<div class="sk-di" style="color:'+(DZC[dp]||'#2c2416')+'">'+dp+'</div></div>';
+        }
+
+        // Build 三传
+        var scHTML = '';
+        var scNames = ['初传','中传','末传'];
+        for (var sci = 0; sci < 3; sci++) {
+            var scZhi = sc[scNames[sci]] || '';
+            scHTML += '<div class="sc-node" style="border-color:'+(DZC[scZhi]||'#2c2416')+';color:'+(DZC[scZhi]||'#2c2416')+'">'+scZhi+'</div>';
+            if (sci < 2) scHTML += '<span class="sc-arrow">→</span>';
+        }
+
+        // Build 神煞
+        var ssCat = {'干煞':'日干取','支煞':'日支取','岁煞':'岁煞','月煞':'月煞'};
+        var ssHTML = '';
+        for (var cat in ssCat) {
+            var items = ss[cat] || {};
+            if (!items || Object.keys(items).length === 0) continue;
+            ssHTML += '<div class="ss-group"><div class="ss-cat-name">'+ssCat[cat]+'</div>';
+            for (var nm in items) {
+                var val = items[nm];
+                if (!val) continue;
+                ssHTML += '<span class="ss-item"><b>'+nm+'</b> <span style="color:'+(DZC[val]||'#9c8b72')+'">'+val+'</span></span>';
+            }
+            ssHTML += '</div>';
+        }
+
+        // Build notes section
+        var rawNotes = (caseObj.personal_notes || caseObj.notes || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        var notesFormatted = rawNotes
+            .replace(/^### (.+)$/gm, '<h4>$1</h4>')
+            .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^# (.+)$/gm, '<h2>$1</h2>')
+            .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+            .replace(/__(.+?)__/g, '<u>$1</u>')
+            .replace(/\*(.+?)\*/g, '<i>$1</i>')
+            .replace(/^[-*]\s(.+)$/gm, '<li>$1</li>')
+            .replace(/^>\s(.+)$/gm, '<blockquote>$1</blockquote>')
+            .replace(/\n\n/g, '</p><p>')
+            .replace(/\n/g, '<br>');
+
+        var now = new Date().toLocaleString('zh-CN');
+
+        var html = '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width,initial-scale=1.0">\n<title>大六壬课例 · '+(caseObj.name||'无题')+'</title>\n<style>\n' +
+'*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}\n' +
+':root{--bg:#fefcf7;--card:#faf7f0;--text:#2c2416;--text2:#6b6560;--text3:#9c8b72;--red:#b83a2e;--gold:#8b6914;--border:rgba(107,101,96,0.12);--font-serif:"Noto Serif SC","Songti SC",serif;--font-sans:"Noto Sans SC","PingFang SC",sans-serif}\n' +
+'body{background:var(--bg);color:var(--text);font-family:var(--font-serif);line-height:1.8;padding:0;min-height:100vh}\n' +
+'.container{max-width:800px;margin:0 auto;padding:48px 32px 80px}\n' +
+'header{text-align:center;padding:48px 0 36px;border-bottom:1px solid var(--border);margin-bottom:40px}\n' +
+'header h1{font-size:2rem;font-weight:700;letter-spacing:6px;color:var(--text);margin-bottom:10px}\n' +
+'header .meta{font-size:0.8rem;color:var(--text3);letter-spacing:2px}\n' +
+'section{margin:40px 0}\n' +
+'section h2{font-size:0.75rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:4px;margin-bottom:16px;padding-bottom:8px;border-bottom:1px solid var(--border)}\n' +
+'.pan-wrap{display:flex;justify-content:center;padding:20px 0}\n' +
+'.info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}\n' +
+'.info-card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:center}\n' +
+'.info-card .ic-label{font-size:0.65rem;color:var(--text3);letter-spacing:2px;margin-bottom:4px}\n' +
+'.info-card .ic-value{font-size:1.1rem;font-weight:700;color:var(--text)}\n' +
+'.sike-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}\n' +
+'.sk-card{flex:1;min-width:100px;max-width:140px;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 8px;text-align:center}\n' +
+'.sk-label{font-size:0.6rem;color:var(--text3);margin-bottom:6px}\n' +
+'.sk-shang{font-size:1.6rem;font-weight:700;line-height:1.3}\n' +
+'.sk-di{font-size:1.1rem;font-weight:600}\n' +
+'.sc-row{display:flex;align-items:center;justify-content:center;gap:14px;padding:16px 0}\n' +
+'.sc-node{width:48px;height:48px;border-radius:50%;border:2.5px solid;display:flex;align-items:center;justify-content:center;font-size:1.3rem;font-weight:700;background:#fff}\n' +
+'.sc-arrow{font-size:1.2rem;color:var(--red);font-weight:700}\n' +
+'.ss-group{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:10px;padding:10px 14px;background:var(--card);border-radius:8px;border:1px solid var(--border)}\n' +
+'.ss-cat-name{width:100%;font-size:0.65rem;color:var(--text3);letter-spacing:2px;margin-bottom:2px}\n' +
+'.ss-item{font-size:0.8rem;color:var(--text2)}\n' +
+'.ss-item b{font-weight:500;color:var(--text)}\n' +
+'.notes-section{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:24px 28px;min-height:120px}\n' +
+'.notes-section h2{margin-top:0}\n' +
+'.notes-body{font-size:0.9rem;line-height:1.9;color:var(--text);outline:none;min-height:80px}\n' +
+'.notes-body h3{font-size:1.1rem;color:var(--red);margin:20px 0 8px;font-weight:700}\n' +
+'.notes-body h4{font-size:0.95rem;color:var(--text2);margin:14px 0 6px}\n' +
+'.notes-body p{margin:6px 0}\n' +
+'.notes-body li{margin-left:20px}\n' +
+'.notes-body blockquote{border-left:2px solid var(--red);padding:4px 14px;margin:8px 0;color:var(--text2);font-style:italic}\n' +
+'.edit-toolbar{display:flex;gap:4px;padding:8px 0;margin-bottom:12px;border-bottom:1px solid var(--border);flex-wrap:wrap}\n' +
+'.edit-toolbar button{width:30px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--bg);cursor:pointer;font-size:12px;color:var(--text2);font-family:inherit;transition:all 0.15s}\n' +
+'.edit-toolbar button:hover{background:rgba(184,58,46,0.06);border-color:rgba(184,58,46,0.25);color:var(--red)}\n' +
+'.edit-toolbar .tb-sep{width:1px;height:20px;background:var(--border);margin:0 4px;align-self:center}\n' +
+'footer{text-align:center;padding:40px 0 20px;color:var(--text3);font-size:0.65rem;letter-spacing:2px;border-top:1px solid var(--border);margin-top:40px}\n' +
+'.btn-print{position:fixed;bottom:24px;right:24px;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:18px;box-shadow:0 2px 8px rgba(0,0,0,0.06);transition:all 0.2s;z-index:100}\n' +
+'.btn-print:hover{box-shadow:0 4px 16px rgba(0,0,0,0.12)}\n' +
+'@media print{body{background:#fff}.container{max-width:100%;padding:20px}.btn-print,.edit-toolbar{display:none}.notes-body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}\n' +
+'@media(max-width:640px){.container{padding:24px 16px 40px}header h1{font-size:1.4rem}.sk-card{min-width:70px}.sc-node{width:38px;height:38px;font-size:1rem}}\n' +
+'</style>\n</head>\n<body>\n<div class="container">\n' +
+'<header>\n<h1>'+(caseObj.name||'无题')+'</h1>\n'+
+'<div class="meta">'+(sj['公历']||'')+' · '+(pm['占时']||'')+'占 · '+(pm['月将']||'')+'将 · '+(jq['当前节气']||'')+' · '+(sc['方法']||'')+'课 · '+(sj['昼夜']||'')+'</div>\n'+
+'</header>\n'+
+'<section><h2>天地盘</h2><div class="pan-wrap">'+panSVG+'</div></section>\n'+
+'<section>\n<h2>基本信息</h2>\n<div class="info-grid">\n'+
+'<div class="info-card"><div class="ic-label">年柱</div><div class="ic-value">'+(sz['年柱']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">月柱</div><div class="ic-value">'+(sz['月柱']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">日柱</div><div class="ic-value">'+(sz['日柱']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">时柱</div><div class="ic-value">'+(sz['时柱']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">日干</div><div class="ic-value">'+(sj['日干']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">日支</div><div class="ic-value">'+(sj['日支']||'--')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">行年</div><div class="ic-value">'+(xn['行年地支']||d['行年']||'')+'</div></div>\n'+
+'<div class="info-card"><div class="ic-label">旬空</div><div class="ic-value" style="font-size:0.9rem">'+(xk.join(' '))+'</div></div>\n'+
+'</div></section>\n'+
+'<section><h2>四课</h2><div class="sike-row">'+sikeHTML+'</div></section>\n'+
+'<section><h2>三传</h2><div class="sc-row">'+scHTML+'</div>\n'+
+'<div style="text-align:center;font-size:0.7rem;color:var(--text3);margin-top:4px">'+(sc['方法']||'')+'课 · 初'+(scLQ['初传']||'')+'('+(scTJ['初传']||'')+') → 中'+(scLQ['中传']||'')+'('+(scTJ['中传']||'')+') → 末'+(scLQ['末传']||'')+'('+(scTJ['末传']||'')+')</div>\n'+
+'</section>\n'+
+'<section><h2>神煞</h2>'+ssHTML+'</section>\n'+
+'<section><h2>解读笔记 <span style="font-weight:400;font-size:0.7rem;color:var(--text3)">（点击文字直接编辑）</span></h2>\n'+
+'<div class="notes-section">\n<div class="edit-toolbar" id="etb">\n'+
+'<button onclick="document.execCommand(\'bold\')" title="加粗"><b>B</b></button>\n'+
+'<button onclick="document.execCommand(\'italic\')" title="斜体"><i>I</i></button>\n'+
+'<button onclick="document.execCommand(\'underline\')" title="下划线"><u>U</u></button>\n'+
+'<span class="tb-sep"></span>\n'+
+'<button onclick="document.execCommand(\'formatBlock\',false,\'h3\')" title="标题">H</button>\n'+
+'<button onclick="document.execCommand(\'insertUnorderedList\')" title="列表">•</button>\n'+
+'<button onclick="document.execCommand(\'formatBlock\',false,\'blockquote\')" title="引用">❝</button>\n'+
+'</div>\n'+
+'<div class="notes-body" contenteditable="true" id="notes-body">'+(notesFormatted||'<p style="color:var(--text3)">在此撰写解读笔记…</p>')+'</div>\n</div>\n</section>\n'+
+'<footer><p>大六壬课例导出 · '+now+'</p></footer>\n'+
+'</div>\n'+
+'<button class="btn-print" onclick="window.print()" title="打印">🖨</button>\n'+
+'<script>\n'+
+'document.getElementById("notes-body").addEventListener("input",function(){this.style.color="#2c2416"});\n'+
+'</'+'script>\n</body>\n</html>';
+
+        var blob = new Blob(['﻿' + html], {type: 'text/html;charset=UTF-8'});
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = (caseObj.name || '课例') + '_大六壬讲解.html';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
 
     // 初始化各模块（各自隔离，互不影响）
     try { Chat.init(); } catch(e) { console.warn('[app] Chat.init 失败:', e); }
