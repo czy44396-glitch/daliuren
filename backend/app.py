@@ -1156,7 +1156,7 @@ async def export_case_html(case_id: str):
             filename = f"case_{case_id}_lecture.html"
 
         return Response(content=html, media_type="text/html; charset=utf-8",
-                        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"})
+                        headers={"Content-Disposition": f"inline; filename*=UTF-8''{quote(filename)}"})
     except Exception as e:
         traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
