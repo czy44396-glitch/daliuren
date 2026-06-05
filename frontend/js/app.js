@@ -3012,8 +3012,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // ====== 导出课例为优雅 HTML 讲解页 ======
     async function exportCaseHTML(caseId) {
-        // 在新标签页打开后端渲染的可编辑讲解页
-        window.open('/api/cases/' + caseId + '/export-html', '_blank');
+        // 先同步打开空白窗口（避开popup blocker），再异步获取内容写入
+        var w = window.open('', '_blank');
+        if (!w) { alert('浏览器拦截了弹窗，请允许本网站弹窗后重试'); return; }
+        w.document.write('<html><body style="background:#fefcf7;display:flex;align-items:center;justify-content:center;height:100vh;font-family:serif;color:#9c8b72;font-size:18px">⏳ 正在加载课例讲解页…</body></html>');
+        w.document.close();
+        try {
+            var resp = await fetch('/api/cases/' + caseId + '/export-html');
+            var html = await resp.text();
+            w.document.open();
+            w.document.write(html);
+            w.document.close();
+        } catch(e) {
+            w.document.open();
+            w.document.write('<html><body style="background:#fefcf7;padding:40px;font-family:serif;color:#b83a2e"><h1>导出失败</h1><p>'+e.message+'</p></body></html>');
+            w.document.close();
+        }
         return; /* ── 后端模板渲染，以下旧代码已废弃 ── */
         var caseObj = _caseGet(caseId);
         if (!caseObj || !caseObj.pan_data) {
