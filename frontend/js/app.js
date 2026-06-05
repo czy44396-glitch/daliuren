@@ -563,7 +563,7 @@ function loadCaseList() {
             '<button class="btn btn-sm case-rename" data-id="'+c.id+'" data-name="'+c.name.replace(/"/g,'&quot;')+'">改名</button>' +
             '<button class="btn btn-sm case-tags-edit" data-id="'+c.id+'">改标签</button>' +
             '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>' +
-            '<a href="/api/cases/'+c.id+'/export-html" target="_blank" class="btn btn-sm" style="background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.25);color:#8b6914;text-decoration:none;display:inline-flex;align-items:center">导出</a>';
+            '<a href="/api/cases/'+c.id+'/export-html" target="_blank" rel="noopener" class="btn btn-sm" style="background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.25);color:#8b6914;text-decoration:none;display:inline-flex;align-items:center">导出</a>';
         list.appendChild(div);
     });
 
