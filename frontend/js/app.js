@@ -31,7 +31,7 @@ const _toolbarActions = {
     'btn-correct-sc':      () => showCorrectSCModal(),
     'btn-correct-yj':      () => showCorrectYJModal(),
     'btn-export-img':      () => exportCurrentPan(),
-    'btn-export-html':     () => { if (currentLoadedCaseId) exportCaseHTML(currentLoadedCaseId); },
+    'btn-export-html':     () => { if (currentLoadedCaseId) window.open('/api/cases/' + currentLoadedCaseId + '/export-html', '_blank'); },
     'btn-classics':        () => { if (typeof Classics !== 'undefined') Classics.open(); },
     'btn-back-portal':     () => backToPortal(),
 };
@@ -563,7 +563,7 @@ function loadCaseList() {
             '<button class="btn btn-sm case-rename" data-id="'+c.id+'" data-name="'+c.name.replace(/"/g,'&quot;')+'">改名</button>' +
             '<button class="btn btn-sm case-tags-edit" data-id="'+c.id+'">改标签</button>' +
             '<button class="btn btn-sm case-del" data-id="'+c.id+'">删</button>' +
-            '<button class="btn btn-sm case-export-html" data-id="'+c.id+'" style="background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.25);color:#8b6914">导出</button>';
+            '<a href="/api/cases/'+c.id+'/export-html" target="_blank" class="btn btn-sm" style="background:rgba(212,160,23,0.06);border:1px solid rgba(212,160,23,0.25);color:#8b6914;text-decoration:none;display:inline-flex;align-items:center">导出</a>';
         list.appendChild(div);
     });
 
@@ -629,11 +629,6 @@ function loadCaseList() {
         _showTagEditor(b.dataset.id);
     }); });
 
-    // 导出HTML按钮
-    list.querySelectorAll('.case-export-html').forEach(function(b) { b.addEventListener('click', function(e) {
-        e.stopPropagation();
-        exportCaseHTML(b.dataset.id);
-    }); });
 }
 
 // 案例标签编辑弹窗
