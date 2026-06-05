@@ -11,7 +11,8 @@ from .basics import (
     GAN_JIGONG, ZHI_ZHUQI, get_xun_kong, get_liuqin,
     get_liuqin_by_zhi, get_chong, get_xing, get_liuhe,
     get_hai, get_tianma, get_taohua, LUSHEN, YANGREN,
-    GUI_REN_DAY,
+    GUI_REN_DAY, GUI_REN_NIGHT,
+    TIANDE_MAP, get_yuede, WENCHANG_MAP, XUETANG_MAP, TIANCHU_MAP,
 )
 from .calendar import get_jieqi_times, JIEQI_NAMES
 
@@ -168,12 +169,23 @@ def paipan(
     from .basics import get_jiesha, get_zaisha, get_tianxi, get_xuezhi, get_sangmen, get_diaoke, RIDE, get_huagai, get_jiangxing, get_wangshen, get_posui
     nian_zhi = nian_zhu[1]
     yue_zhi_cur = yue_zhu[1]
+
+    # 天乙贵人：昼贵人 vs 夜贵人（根据实际昼夜选择）
+    guiren_day = GUI_REN_DAY.get(ri_gan, "")
+    guiren_night = GUI_REN_NIGHT.get(ri_gan, "")
+    guiren = guiren_day if is_day else guiren_night
+
     shensha = {
         "干煞": {
-            "天乙昼贵": GUI_REN_DAY.get(ri_gan, ""),
+            "天乙贵": guiren,          # 当前昼夜对应的贵人
+            "天乙昼贵": guiren_day,     # 保留昼贵供参考
+            "天乙夜贵": guiren_night,   # 保留夜贵供参考
             "禄神": lushen,
             "羊刃": yangren,
             "日德": RIDE.get(ri_gan, ""),
+            "文昌": WENCHANG_MAP.get(ri_gan, ""),
+            "学堂": XUETANG_MAP.get(ri_gan, ""),
+            "天厨": TIANCHU_MAP.get(ri_gan, ""),
         },
         "支煞": {
             "驿马": tianma,
@@ -190,6 +202,8 @@ def paipan(
             "吊客": get_diaoke(nian_zhi),
         },
         "月煞": {
+            "天德": TIANDE_MAP.get(yue_zhi_cur, ""),
+            "月德": get_yuede(yue_zhi_cur),
             "天喜": get_tianxi(yue_zhi_cur),
             "血支": get_xuezhi(yue_zhi_cur),
         },
