@@ -335,5 +335,3 @@ function _renderDayunHTML(data) {
 
     container.innerHTML = h;
 }
-
-}
