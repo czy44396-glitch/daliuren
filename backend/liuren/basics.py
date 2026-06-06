@@ -404,6 +404,55 @@ def get_diaoke(taisui_zhi: str) -> str:
     return DIZHI[(ZHI_INDEX[taisui_zhi] - 2) % 12]
 
 
+# ========== 十天干十二长生 ==========
+# 长生→沐浴→冠带→临官→帝旺→衰→病→死→墓→绝→胎→养
+SHENG_NAMES = ["长生","沐浴","冠带","临官","帝旺","衰","病","死","墓","绝","胎","养"]
+
+# 天干长生位 (长生在X, 阳干顺行/阴干逆行)
+GAN_CHANGSHENG = {
+    "甲": ("亥", True),   # 阳, 顺行
+    "乙": ("午", False),  # 阴, 逆行
+    "丙": ("寅", True),   # 阳, 顺行
+    "丁": ("酉", False),  # 阴, 逆行
+    "戊": ("寅", True),   # 阳, 顺行(与丙同)
+    "己": ("酉", False),  # 阴, 逆行(与丁同)
+    "庚": ("巳", True),   # 阳, 顺行
+    "辛": ("子", False),  # 阴, 逆行
+    "壬": ("申", True),   # 阳, 顺行
+    "癸": ("卯", False),  # 阴, 逆行
+}
+
+def get_changsheng(gan: str, target_zhi: str) -> str:
+    """
+    返回 target_zhi 对于 gan 的十二长生状态。
+    例: get_changsheng("甲", "亥") → "长生"
+         get_changsheng("丁", "酉") → "长生"
+    """
+    if gan not in GAN_CHANGSHENG:
+        return ""
+    cs_zhi, forward = GAN_CHANGSHENG[gan]
+    cs_idx = ZHI_INDEX[cs_zhi]
+    target_idx = ZHI_INDEX[target_zhi]
+    if forward:
+        offset = (target_idx - cs_idx) % 12
+    else:
+        offset = (cs_idx - target_idx) % 12
+    return SHENG_NAMES[offset] if offset < 12 else ""
+
+def get_changsheng_desc(gan: str) -> str:
+    """返回天干的十二长生描述文本（供AI参考）"""
+    cs_zhi, forward = GAN_CHANGSHENG.get(gan, ("", True))
+    if not cs_zhi:
+        return ""
+    direction = "顺行" if forward else "逆行"
+    stages = []
+    cs_idx = ZHI_INDEX[cs_zhi]
+    for i in range(12):
+        idx = (cs_idx + i) % 12 if forward else (cs_idx - i) % 12
+        stages.append(f"{SHENG_NAMES[i]}在{DIZHI[idx]}")
+    return f"{gan}长生在{cs_zhi}({direction}): " + " → ".join(stages)
+
+
 # ========== 六亲（以日干为我） ==========
 # 五行对应六亲
 def get_liuqin(ri_gan: str, target_gan: str) -> str:

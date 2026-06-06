@@ -256,4 +256,21 @@ def paipan(
     )
     result["大运流年"] = dayun
 
+    # 16. 十天干十二长生状态（供AI参考）
+    from .basics import get_changsheng_desc, get_changsheng
+    cs_info = {}
+    for gan in TIANGAN:
+        cs_info[gan] = get_changsheng_desc(gan)
+    # 标记当前日干的十二长生在各支的位置
+    ri_cs = {}
+    for zhi in DIZHI:
+        cs = get_changsheng(ri_gan, zhi)
+        if cs:
+            ri_cs[zhi] = cs
+    result["十二长生"] = {
+        "日干": ri_gan,
+        "日干状态": ri_cs,
+        "天干总表": cs_info,
+    }
+
     return result
