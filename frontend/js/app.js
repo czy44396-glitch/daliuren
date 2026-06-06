@@ -1299,6 +1299,7 @@ async function applyCorrectSC() {
     const c = document.getElementById('correct-sc-c').value;
     const z = document.getElementById('correct-sc-z').value;
     const m = document.getElementById('correct-sc-m').value;
+    const note = document.getElementById('correct-sc-note')?.value.trim() || '';
     if (!c || !z || !m) { alert('请完整填写三传'); return; }
 
     try {
@@ -1308,6 +1309,7 @@ async function applyCorrectSC() {
             body: JSON.stringify({
                 pan_data: JSON.parse(JSON.stringify(currentPanData)),
                 method, chuchuan: c, zhongchuan: z, mochuan: m,
+                note: note,
             }),
         });
         const r = await resp.json();

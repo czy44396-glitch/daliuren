@@ -54,6 +54,60 @@ cases_dir.mkdir(exist_ok=True)
 history_dir = Path(__file__).parent / "history"
 history_dir.mkdir(exist_ok=True)
 history_archive = Path(__file__).parent / "data" / "liurenduanan.json"
+corrections_dir = Path(__file__).parent / "corrections"
+corrections_dir.mkdir(exist_ok=True)
+corrections_index = corrections_dir / "_index.json"
+
+def _save_sanchuan_correction(entry: dict):
+    """保存三传矫正记录，同时更新索引"""
+    # 保存单独文件
+    fp = corrections_dir / f"{entry['id']}.json"
+    with open(fp, "w", encoding="utf-8") as f:
+        json.dump(entry, f, ensure_ascii=False, indent=2)
+    # 更新索引
+    idx = _load_corrections_index()
+    idx.insert(0, {
+        "id": entry["id"],
+        "corrected_at": entry["corrected_at"],
+        "四柱": entry["四柱"],
+        "日干": entry["日干"],
+        "原始方法": entry["原始三传"]["方法"],
+        "修正方法": entry["修正三传"]["方法"],
+        "原始初传": entry["原始三传"]["初传"],
+        "修正初传": entry["修正三传"]["初传"],
+    })
+    # 保留最近500条
+    if len(idx) > 500:
+        idx = idx[:500]
+    with open(corrections_index, "w", encoding="utf-8") as f:
+        json.dump(idx, f, ensure_ascii=False, indent=2)
+
+def _load_corrections_index() -> list:
+    """加载矫正索引"""
+    if corrections_index.exists():
+        try:
+            with open(corrections_index, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return []
+
+def _find_relevant_corrections(ri_gan: str, sike_str: str, limit: int = 5) -> list:
+    """查找与当前盘面相关的历史矫正记录（用于 AI 参考）"""
+    idx = _load_corrections_index()
+    # 同日干优先匹配
+    relevant = [e for e in idx if e.get("日干") == ri_gan]
+    if len(relevant) < 3:
+        relevant = idx[:limit]
+    return relevant[:limit]
+
+def _get_correction_detail(cid: str) -> dict | None:
+    """获取单条矫正的完整详情"""
+    fp = corrections_dir / f"{cid}.json"
+    if fp.exists():
+        with open(fp, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
 
 app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
 
@@ -536,6 +590,7 @@ async def correct_sanchuan(request: Request):
         }
 
         # 更新盘面
+        old_sanchuan = pan_data.get("三传", {})
         pan_data["三传"] = {
             "方法": new_method or "手动矫正",
             "初传": new_chuchuan, "中传": new_zhongchuan, "末传": new_mochuan,
@@ -545,10 +600,65 @@ async def correct_sanchuan(request: Request):
         pan_data["三传六亲"] = sanchuan_liuqin
         pan_data["三传天将"] = sanchuan_tianjiang
 
+        # ── 保存矫正记录（供 AI 学习） ──
+        sizhu = pan_data.get("时间", {}).get("四柱", {})
+        sike_info = pan_data.get("四课", {})
+        correction_entry = {
+            "id": datetime.now().strftime("%Y%m%d_%H%M%S_%f"),
+            "corrected_at": datetime.now().isoformat(),
+            "四柱": sizhu,
+            "日干": ri_gan,
+            "日支": pan_data.get("时间", {}).get("日支", ""),
+            "占时": pan_data.get("排盘参数", {}).get("占时", ""),
+            "月将": pan_data.get("排盘参数", {}).get("月将", ""),
+            "四课": sike_info,
+            "四课详情": pan_data.get("四课详情", []),
+            "天地盘": tiandipan,
+            "原始三传": {
+                "方法": old_sanchuan.get("方法", ""),
+                "初传": old_sanchuan.get("初传", ""),
+                "中传": old_sanchuan.get("中传", ""),
+                "末传": old_sanchuan.get("末传", ""),
+            },
+            "修正三传": {
+                "方法": new_method or "手动矫正",
+                "初传": new_chuchuan,
+                "中传": new_zhongchuan,
+                "末传": new_mochuan,
+            },
+            "修正说明": data.get("note", "").strip(),
+        }
+        _save_sanchuan_correction(correction_entry)
+        # ────────────────────────────────
+
         return {"success": True, "data": pan_data}
     except Exception as e:
         traceback.print_exc()
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
+
+
+# ══════ 三传矫正学习 API ══════
+@app.get("/api/corrections/list")
+async def list_corrections():
+    """列出所有三传矫正记录"""
+    idx = _load_corrections_index()
+    return {"success": True, "corrections": idx[:50], "total": len(idx)}
+
+
+@app.get("/api/corrections/{cid}")
+async def get_correction(cid: str):
+    """获取单条矫正完整详情"""
+    entry = _get_correction_detail(cid)
+    if entry:
+        return {"success": True, "correction": entry}
+    return JSONResponse({"success": False, "error": "矫正记录不存在"}, status_code=404)
+
+
+@app.get("/api/corrections/check/{ri_gan}")
+async def check_relevant_corrections(ri_gan: str):
+    """检查与指定日干相关的历史矫正（供 AI 参考）"""
+    relevant = _find_relevant_corrections(ri_gan, "")
+    return {"success": True, "relevant": relevant}
 
 
 @app.post("/api/correct-yuejiang")
@@ -905,10 +1015,17 @@ async def ws_chat(websocket: WebSocket):
                     if style_refs:
                         personal_style_ctx = _build_personal_style_context(style_refs)
 
+                # 注入三传矫正历史（帮助AI学习避免重复错误）
+                correction_ctx = _build_correction_context(current_pan)
+
                 # 注入 skill 上下文
                 effective_msg = user_msg
                 if used_skill:
                     effective_msg = inject_skill_context(used_skill, current_pan, user_msg)
+
+                # 如果有矫正上下文，追加到消息中
+                if correction_ctx:
+                    effective_msg = correction_ctx + "\n\n---\n\n" + effective_msg
 
                 response = chat_interpret(current_pan, effective_msg, history, personal_style_ctx)
                 history.append({"role": "user", "content": user_msg})
@@ -2501,6 +2618,33 @@ def _find_personal_style_refs(method: str, sanchuan: list[str], sike: list[str],
             })
     refs.sort(key=lambda r: r["score"], reverse=True)
     return refs[:max_cases]
+
+
+def _build_correction_context(pan_data: dict) -> str:
+    """构建三传矫正历史上下文（帮助AI学习避免已知错误）"""
+    ri_gan = pan_data.get("时间", {}).get("日干", "")
+    sike_str = json.dumps(pan_data.get("四课", {}), ensure_ascii=False)
+    relevant = _find_relevant_corrections(ri_gan, sike_str, limit=3)
+    if not relevant:
+        return ""
+
+    parts = ["\n\n## ⚠️ 三传矫正知识库\n"]
+    parts.append("以下历史矫正记录可能与当前课盘相关，请在取三传时特别注意避免这些已知错误：\n")
+    for i, c in enumerate(relevant):
+        detail = _get_correction_detail(c["id"])
+        if not detail:
+            continue
+        parts.append(f"### 矫正案例 {i+1}")
+        parts.append(f"- 四柱：{detail['四柱']}")
+        parts.append(f"- 日干：{detail['日干']}，日支：{detail['日支']}")
+        parts.append(f"- 占时：{detail['占时']}，月将：{detail['月将']}")
+        parts.append(f"- 原始三传（❌错误）：{detail['原始三传']['方法']}课 {detail['原始三传']['初传']}→{detail['原始三传']['中传']}→{detail['原始三传']['末传']}")
+        parts.append(f"- 修正三传（✅正确）：{detail['修正三传']['方法']}课 {detail['修正三传']['初传']}→{detail['修正三传']['中传']}→{detail['修正三传']['末传']}")
+        if detail.get("修正说明"):
+            parts.append(f"- 修正说明：{detail['修正说明']}")
+        parts.append("")
+    parts.append("请在解读时，先根据上述矫正记录校验三传取法是否正确。如果是类似课式，优先参考修正后的取法。\n")
+    return "\n".join(parts)
 
 
 def _build_personal_style_context(refs: list[dict]) -> str:
