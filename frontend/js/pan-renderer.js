@@ -61,8 +61,6 @@ function renderBoard(data) {
     // === Part 6: 大运流年 ===
     _renderDayunHTML(data);
 
-    // === Part 7: 紫微斗数 ===
-    _renderZiweiHTML(data);
 }
 
 
@@ -338,90 +336,4 @@ function _renderDayunHTML(data) {
     container.innerHTML = h;
 }
 
-function _renderZiweiHTML(data) {
-    const container = document.getElementById('ziwei-container');
-    if (!container) return;
-    const zw = data["紫微斗数"];
-    if (!zw || !zw["十二宫"]) { container.innerHTML = ''; return; }
-
-    const gongs = zw["十二宫"];
-    const dayun = zw["大运"] || [];
-    const liunian = zw["流年"] || [];
-    const stars = zw["主星布局"] || {};
-    const mingGong = zw["命宫"] || {};
-    const shenGong = zw["身宫"] || {};
-
-    let h = '<div class="section-title">紫 微 斗 数</div>';
-
-    // 命宫 + 五行局 + 起运
-    h += `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:0.75rem;color:var(--text2)">
-        <span>命宫 <b style="color:var(--red)">${mingGong["干支"]||""}</b></span>
-        <span>身宫 <b>${shenGong["地支"]||""}</b></span>
-        <span>${zw["五行局"]?.["纳音"]||""} <b>${zw["五行局"]?.["五行"]||""}${zw["五行局"]?.["局数"]||""}局</b></span>
-        <span>紫微<b style="color:#c94043">${zw["紫微星"]||""}</b></span>
-        <span>天府<b style="color:#7D5A3C">${zw["天府星"]||""}</b></span>
-        <span>${zw["年干阴阳"]||""}年${zw["性别"]||""} · ${zw["顺逆"]||""} · 起运<b style="color:var(--red)">${zw["起运岁数"]||""}</b>岁</span>
-    </div>`;
-
-    // 十二宫 4x4 盘面 — 更新数据结构
-    const gongByZhi = {};
-    gongs.forEach(function(g) { gongByZhi[g["地支"]] = g; });
-
-    const allStars = zw["星曜"] || {};
-
-    const gridLayout = [
-        ["巳","午","未","申"],
-        ["辰",null,null,"酉"],
-        ["卯",null,null,"戌"],
-        ["寅","丑","子","亥"],
-    ];
-
-    h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:560px;margin-bottom:12px">';
-    for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 4; col++) {
-            const zhi = gridLayout[row][col];
-            if (!zhi) { h += '<div></div>'; continue; }
-            const gong = gongByZhi[zhi];
-            if (!gong) { h += '<div></div>'; continue; }
-            const isMing = zhi === mingGong["地支"];
-            const isShen = zhi === shenGong["地支"];
-            const gStars = allStars[zhi] || [];
-            const cs = zw["长生十二神"]?.[zhi] || "";
-            h += `<div style="background:var(--card);border:1px solid ${isMing?'rgba(184,58,46,0.4)':'var(--border)'};border-radius:6px;padding:4px;text-align:center;font-size:0.6rem;min-height:68px">
-                <div style="font-size:0.5rem;color:var(--text3)">${gong["宫名"]}${cs?' · '+cs:''}</div>
-                <div style="font-weight:700;font-size:0.75rem;color:${isMing?'var(--red)':'var(--text)'}">${gong["干支"]}${isMing?' 命':''}${isShen?' 身':''}</div>
-                <div style="color:#c94043;font-size:0.55rem;line-height:1.3">${gStars.join('<br>')}</div>
-            </div>`;
-        }
-    }
-    h += '</div>';
-
-    // 大运
-    h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">';
-    for (let i = 0; i < dayun.length; i++) {
-        const d = dayun[i];
-        h += `<div style="flex:1;min-width:50px;max-width:80px;text-align:center;padding:4px 2px;background:var(--card);border:1px solid var(--border);border-radius:6px">
-            <div style="font-size:0.5rem;color:var(--text3)">${d["年龄"]}</div>
-            <div style="font-size:0.75rem;font-weight:700;color:var(--text)">${d["干支"]}</div>
-        </div>`;
-    }
-    h += '</div>';
-
-    // 流年
-    if (liunian.length > 0) {
-        h += '<div style="font-size:0.6rem;color:var(--text3);margin-bottom:2px">流年</div>';
-        h += '<div style="display:flex;gap:3px;flex-wrap:wrap">';
-        for (let i = 0; i < liunian.length; i++) {
-            const l = liunian[i];
-            const isNow = l["年份"] === new Date().getFullYear();
-            h += `<span style="padding:1px 6px;border-radius:3px;font-size:0.65rem;
-                background:${isNow?'rgba(184,58,46,0.08)':'var(--card)'};
-                border:1px solid ${isNow?'rgba(184,58,46,0.25)':'var(--border)'};
-                color:${isNow?'var(--red)':'var(--text2)'}">
-                ${l["年份"]}<b>${l["干支"]}</b></span>`;
-        }
-        h += '</div>';
-    }
-
-    container.innerHTML = h;
 }

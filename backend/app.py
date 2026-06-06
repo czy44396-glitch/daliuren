@@ -1244,9 +1244,6 @@ async def get_case(case_id: str):
                     if "大运流年" not in pan:
                         from liuren.dayun import compute_dayun
                         pan["大运流年"] = compute_dayun(year=y, month=mo, day=d, hour=h, minute=mi, sex="男")
-                    if "紫微斗数" not in pan:
-                        from liuren.ziwei import compute_ziwei
-                        pan["紫微斗数"] = compute_ziwei(year=y, month=mo, day=d, hour=h, minute=mi, sex="男")
                     c["pan_data"] = pan
                 except Exception:
                     pass

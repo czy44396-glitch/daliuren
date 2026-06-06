@@ -256,12 +256,4 @@ def paipan(
     )
     result["大运流年"] = dayun
 
-    # 15. 紫微斗数大运流年
-    from .ziwei import compute_ziwei
-    ziwei = compute_ziwei(
-        year=year, month=month, day=day, hour=hour, minute=minute,
-        sex=sex,
-    )
-    result["紫微斗数"] = ziwei
-
     return result
