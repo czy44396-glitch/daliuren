@@ -363,15 +363,18 @@ function _renderZiweiHTML(data) {
         <span>${zw["年干阴阳"]||""}年${zw["性别"]||""} · ${zw["顺逆"]||""} · 起运<b style="color:var(--red)">${zw["起运岁数"]||""}</b>岁</span>
     </div>`;
 
-    // 十二宫 4x4 盘面
+    // 十二宫 4x4 盘面 — 更新数据结构
+    const gongByZhi = {};
+    gongs.forEach(function(g) { gongByZhi[g["地支"]] = g; });
+
+    const allStars = zw["星曜"] || {};
+
     const gridLayout = [
         ["巳","午","未","申"],
         ["辰",null,null,"酉"],
         ["卯",null,null,"戌"],
         ["寅","丑","子","亥"],
     ];
-    const gongByZhi = {};
-    gongs.forEach(function(g) { gongByZhi[g["地支"]] = g; });
 
     h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:560px;margin-bottom:12px">';
     for (let row = 0; row < 4; row++) {
@@ -382,11 +385,12 @@ function _renderZiweiHTML(data) {
             if (!gong) { h += '<div></div>'; continue; }
             const isMing = zhi === mingGong["地支"];
             const isShen = zhi === shenGong["地支"];
-            const gStars = stars[zhi] || [];
-            h += `<div style="background:var(--card);border:1px solid ${isMing?'rgba(184,58,46,0.35)':'var(--border)'};border-radius:6px;padding:4px;text-align:center;font-size:0.6rem;min-height:56px">
-                <div style="font-size:0.5rem;color:var(--text3)">${gong["宫名"]}</div>
+            const gStars = allStars[zhi] || [];
+            const cs = zw["长生十二神"]?.[zhi] || "";
+            h += `<div style="background:var(--card);border:1px solid ${isMing?'rgba(184,58,46,0.4)':'var(--border)'};border-radius:6px;padding:4px;text-align:center;font-size:0.6rem;min-height:68px">
+                <div style="font-size:0.5rem;color:var(--text3)">${gong["宫名"]}${cs?' · '+cs:''}</div>
                 <div style="font-weight:700;font-size:0.75rem;color:${isMing?'var(--red)':'var(--text)'}">${gong["干支"]}${isMing?' 命':''}${isShen?' 身':''}</div>
-                <div style="color:#c94043;font-size:0.55rem">${gStars.join(' ')}</div>
+                <div style="color:#c94043;font-size:0.55rem;line-height:1.3">${gStars.join('<br>')}</div>
             </div>`;
         }
     }
