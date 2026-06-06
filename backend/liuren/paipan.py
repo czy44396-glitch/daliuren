@@ -217,7 +217,7 @@ def paipan(
     }
 
     # 汇总
-    return {
+    result = {
         "时间": {
             "公历": f"{year}-{month:02d}-{day:02d} {hour:02d}:{minute:02d}",
             "四柱": sizhu,
@@ -247,3 +247,13 @@ def paipan(
         "行年详情": xn_info,
         "神煞": shensha,
     }
+
+    # 14. 大运流年
+    from .dayun import compute_dayun
+    dayun = compute_dayun(
+        year=year, month=month, day=day, hour=hour, minute=minute,
+        sex=sex, birth_year=birth_year,
+    )
+    result["大运流年"] = dayun
+
+    return result

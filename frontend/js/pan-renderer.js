@@ -57,6 +57,9 @@ function renderBoard(data) {
 
     // === Part 5: 底部信息栏 ===
     _renderInfoHTML(data);
+
+    // === Part 6: 大运流年 ===
+    _renderDayunHTML(data);
 }
 
 
@@ -275,4 +278,59 @@ function _renderInfoHTML(data) {
         byEl.title = '点击修改出生年份（将重新计算行年）';
         byEl.onclick = function() { editBirthYearOnBoard(); };
     }
+}
+
+function _renderDayunHTML(data) {
+    const container = document.getElementById('dayun-container');
+    if (!container) return;
+    const dy = data["大运流年"];
+    if (!dy || !dy["大运"]) { container.innerHTML = ''; return; }
+
+    const dyl = dy["大运"];
+    const ln = dy["流年"] || [];
+    const curDY = dy["当前大运"];
+
+    let h = '<div class="section-title">大 运 流 年</div>';
+
+    // 起运信息
+    h += `<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:8px;font-size:0.78rem;color:var(--text2)">
+        <span>年干<b style="color:var(--red)">${dy["年干"]||''}</b>(${dy["年干阴阳"]||''}) · ${dy["性别"]||''}</span>
+        <span>${dy["顺逆"]||''}</span>
+        <span>起运 <b style="color:var(--red)">${dy["起运岁数"]||''}</b> 岁 (${dy["起运年份"]||''}年)</span>
+    </div>`;
+
+    // 大运表格
+    h += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px">';
+    for (let i = 0; i < dyl.length; i++) {
+        const d = dyl[i];
+        const isCur = curDY && d["干支"] === curDY["干支"];
+        h += `<div style="flex:1;min-width:60px;max-width:90px;text-align:center;padding:6px 4px;
+            background:${isCur?'rgba(184,58,46,0.08)':'var(--card)'};
+            border:1px solid ${isCur?'rgba(184,58,46,0.3)':'var(--border)'};border-radius:8px;
+            ${isCur?'box-shadow:0 0 0 1px rgba(184,58,46,0.15);':''}">
+            <div style="font-size:0.55rem;color:var(--text3);margin-bottom:2px">${d["年龄"]}</div>
+            <div style="font-size:0.9rem;font-weight:700;color:${isCur?'var(--red)':'var(--text)'}">${d["干支"]}</div>
+            <div style="font-size:0.5rem;color:var(--text3)">${d["起年"]}-${d["止年"]}</div>
+        </div>`;
+    }
+    h += '</div>';
+
+    // 流年
+    if (ln.length > 0) {
+        h += '<div style="font-size:0.65rem;color:var(--text3);margin-bottom:4px">当前大运流年</div>';
+        h += '<div style="display:flex;gap:4px;flex-wrap:wrap">';
+        for (let i = 0; i < ln.length; i++) {
+            const l = ln[i];
+            const isNow = l["年份"] === new Date().getFullYear();
+            h += `<span style="padding:2px 8px;border-radius:4px;font-size:0.75rem;
+                background:${isNow?'rgba(184,58,46,0.1)':'var(--card)'};
+                border:1px solid ${isNow?'rgba(184,58,46,0.3)':'var(--border)'};
+                color:${isNow?'var(--red)':'var(--text2)'}">
+                ${l["年份"]}<b>${l["干支"]}</b>
+            </span>`;
+        }
+        h += '</div>';
+    }
+
+    container.innerHTML = h;
 }
