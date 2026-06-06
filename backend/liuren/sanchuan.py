@@ -22,9 +22,17 @@ from .basics import (
 
 # ========== 工具函数 ==========
 
-def _ke(tian: str, di: str) -> str | None:
-    """判断一课的克关系。返回 'zei'(下克上), 'ke'(上克下), 或 None"""
-    tw, dw = ZHI_WUXING[tian], ZHI_WUXING[di]
+def _ke(tian: str, di: str, ri_gan: str | None = None, is_gan_ke: bool = False) -> str | None:
+    """
+    判断一课的克关系。返回 'zei'(下克上), 'ke'(上克下), 或 None。
+
+    is_gan_ke=True 时：地盘代表日干本身，用日干天干五行（而非寄宫地支五行）判克。
+    """
+    tw = ZHI_WUXING[tian]
+    if is_gan_ke and ri_gan:
+        dw = GAN_WUXING[ri_gan]   # 日干课：地盘五行=日干五行
+    else:
+        dw = ZHI_WUXING[di]       # 普通课：地盘五行=地支五行
     ke_map = {"木": "土", "土": "水", "水": "火", "火": "金", "金": "木"}
     if ke_map.get(dw) == tw:
         return "zei"   # 下克上（贼）
@@ -228,9 +236,11 @@ def get_sanchuan(
     is_bazhuan = _is_bazhuan(ri_gan, ri_zhi) and not is_fuyin and not is_fanyin
 
     # --- 找出所有克 ---
+    # 第1课（日干课）: 地盘代表日干，用日干五行判克，不用寄宫地支五行
     ke_list = []
     for i, (tian, di) in enumerate(sike):
-        kt = _ke(tian, di)
+        is_gan_ke = (i == 0)  # 第1课为日干课
+        kt = _ke(tian, di, ri_gan=ri_gan, is_gan_ke=is_gan_ke)
         if kt:
             ke_list.append({"idx": i, "tian": tian, "di": di, "type": kt})
 
@@ -443,15 +453,12 @@ def get_sanchuan(
         # 兜底：根据地支自身位置推算
         return DIZHI[(ZHI_INDEX[shen] + 2) % 12]
 
-    # 通用规则：中传 = 初传地盘之上神，末传 = 中传地盘之上神
-    # 注意：tiandipan 是 {地盘: 天盘}，必须用所临地盘作为 key，不能用传支本身
+    # 通用规则：中传 = 以初传为地盘取其上神，末传 = 以中传为地盘取其上神
     if zhongchuan is None:
-        chu_di = _find_di(chuchuan)
-        zhongchuan = tiandipan.get(chu_di, chuchuan)
+        zhongchuan = tiandipan.get(chuchuan, chuchuan)
 
     if mochuan is None:
-        zhong_di = _find_di(zhongchuan)
-        mochuan = tiandipan.get(zhong_di, zhongchuan)
+        mochuan = tiandipan.get(zhongchuan, zhongchuan)
 
     c_di = _find_di(chuchuan)
     z_di = _find_di(zhongchuan)
