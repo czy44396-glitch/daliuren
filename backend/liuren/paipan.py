@@ -248,12 +248,20 @@ def paipan(
         "神煞": shensha,
     }
 
-    # 14. 大运流年
+    # 14. 大运流年（八字大运）
     from .dayun import compute_dayun
     dayun = compute_dayun(
         year=year, month=month, day=day, hour=hour, minute=minute,
         sex=sex, birth_year=birth_year,
     )
     result["大运流年"] = dayun
+
+    # 15. 紫微斗数大运流年
+    from .ziwei import compute_ziwei
+    ziwei = compute_ziwei(
+        year=year, month=month, day=day, hour=hour, minute=minute,
+        sex=sex,
+    )
+    result["紫微斗数"] = ziwei
 
     return result

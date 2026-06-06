@@ -1335,6 +1335,16 @@
     margin-bottom: 8px; font-size: 0.8rem; color: var(--text2);
 }
 
+/* 紫微斗数 */
+#board-app #ziwei-container {
+    margin-top: 12px; padding: 10px 14px;
+    background: #fdfaf5; border-radius: 8px;
+    border: 1px solid #e5dcc8; max-width: 660px;
+}
+#board-app #ziwei-container .section-title {
+    margin-bottom: 8px; font-size: 0.8rem; color: var(--text2);
+}
+
 #board-app .method-badge {
     display: inline-block;
     background: var(--red);

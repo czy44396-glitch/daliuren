@@ -1231,25 +1231,25 @@ async def get_case(case_id: str):
         if c is None:
             return JSONResponse({"success": False, "error": "案例不存在"}, status_code=404)
 
-        # 如果 pan_data 缺少大运流年，自动推算并补充
+        # 如果 pan_data 缺少大运流年/紫微斗数，自动推算并补充
         pan = c.get("pan_data", {})
-        if pan and "大运流年" not in pan:
-            try:
-                sj = pan.get("时间", {})
-                gl = sj.get("公历", "")
-                import re
-                m = re.match(r"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})", gl)
-                if m:
-                    from liuren.dayun import compute_dayun
-                    dy = compute_dayun(
-                        year=int(m.group(1)), month=int(m.group(2)), day=int(m.group(3)),
-                        hour=int(m.group(4)), minute=int(m.group(5)),
-                        sex="男",
-                    )
-                    pan["大运流年"] = dy
+        if pan:
+            sj = pan.get("时间", {})
+            gl = sj.get("公历", "")
+            import re
+            m = re.match(r"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})", gl)
+            if m:
+                y, mo, d, h, mi = int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5))
+                try:
+                    if "大运流年" not in pan:
+                        from liuren.dayun import compute_dayun
+                        pan["大运流年"] = compute_dayun(year=y, month=mo, day=d, hour=h, minute=mi, sex="男")
+                    if "紫微斗数" not in pan:
+                        from liuren.ziwei import compute_ziwei
+                        pan["紫微斗数"] = compute_ziwei(year=y, month=mo, day=d, hour=h, minute=mi, sex="男")
                     c["pan_data"] = pan
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
         return {"success": True, "case": c}
     except Exception as e:
