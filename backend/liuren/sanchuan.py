@@ -434,14 +434,7 @@ def get_sanchuan(
         zhongchuan = tiandipan[ri_zhi]   # 支上神
         mochuan = sike[0][0]              # 干上神
 
-    # 通用规则：中传 = 初传地盘之上神，末传 = 中传地盘之上神
-    if zhongchuan is None:
-        zhongchuan = tiandipan[chuchuan]
-
-    if mochuan is None:
-        mochuan = tiandipan[zhongchuan]
-
-    # --- 确定各传所临地盘 ---
+    # --- 确定各传所临地盘（先定义，通用规则要用） ---
     def _find_di(shen: str) -> str:
         """天盘神 → 所临地盘（遍历天地盘获取）"""
         d = _tian_lin_di(tiandipan, shen)
@@ -449,6 +442,16 @@ def get_sanchuan(
             return d
         # 兜底：根据地支自身位置推算
         return DIZHI[(ZHI_INDEX[shen] + 2) % 12]
+
+    # 通用规则：中传 = 初传地盘之上神，末传 = 中传地盘之上神
+    # 注意：tiandipan 是 {地盘: 天盘}，必须用所临地盘作为 key，不能用传支本身
+    if zhongchuan is None:
+        chu_di = _find_di(chuchuan)
+        zhongchuan = tiandipan.get(chu_di, chuchuan)
+
+    if mochuan is None:
+        zhong_di = _find_di(zhongchuan)
+        mochuan = tiandipan.get(zhong_di, zhongchuan)
 
     c_di = _find_di(chuchuan)
     z_di = _find_di(zhongchuan)
