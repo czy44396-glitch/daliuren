@@ -1221,13 +1221,37 @@ async def list_tags():
 
 @app.get("/api/cases/{case_id}")
 async def get_case(case_id: str):
-    """获取单个案例的完整盘面数据"""
+    """获取单个案例的完整盘面数据（自动补充大运流年）"""
     try:
+        c = None
         for fp in cases_dir.glob(f"{case_id}_*.json"):
             with open(fp, "r", encoding="utf-8") as f:
                 c = json.load(f)
-            return {"success": True, "case": c}
-        return JSONResponse({"success": False, "error": "案例不存在"}, status_code=404)
+            break
+        if c is None:
+            return JSONResponse({"success": False, "error": "案例不存在"}, status_code=404)
+
+        # 如果 pan_data 缺少大运流年，自动推算并补充
+        pan = c.get("pan_data", {})
+        if pan and "大运流年" not in pan:
+            try:
+                sj = pan.get("时间", {})
+                gl = sj.get("公历", "")
+                import re
+                m = re.match(r"(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})", gl)
+                if m:
+                    from liuren.dayun import compute_dayun
+                    dy = compute_dayun(
+                        year=int(m.group(1)), month=int(m.group(2)), day=int(m.group(3)),
+                        hour=int(m.group(4)), minute=int(m.group(5)),
+                        sex="男",
+                    )
+                    pan["大运流年"] = dy
+                    c["pan_data"] = pan
+            except Exception:
+                pass
+
+        return {"success": True, "case": c}
     except Exception as e:
         return JSONResponse({"success": False, "error": str(e)}, status_code=500)
 
